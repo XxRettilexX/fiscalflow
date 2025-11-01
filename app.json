@@ -25,7 +25,13 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.vitostri.fiscalflow"
+      "package": "com.vitostri.fiscalflow",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "output": "static",
@@ -62,6 +68,12 @@
       "eas": {
         "projectId": "d734e0ce-1274-4707-a555-03fec44e8c16"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d734e0ce-1274-4707-a555-03fec44e8c16"
     }
   }
 }

@@ -4,7 +4,6 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import {
-    Alert,
     Dimensions,
     ScrollView,
     StyleSheet,
@@ -22,9 +21,6 @@ export default function DashboardScreen({ navigation }: any) {
     const [isProfileVisible, setProfileVisible] = useState(false);
 
     const grossBalance = 14250.75;
-    const predictedYearlyCosts = 6100;
-    const suggestedSavingPercent = 22;
-
     const monthlyData = [
         { value: 1200, label: "Mag" },
         { value: 1500, label: "Giu" },
@@ -34,17 +30,6 @@ export default function DashboardScreen({ navigation }: any) {
         { value: 2600, label: "Ott" },
     ];
 
-    const transactions = [
-        { id: 1, type: "entrata", label: "Fattura #221 Rossi", amount: 820.5, date: "29 Ott" },
-        { id: 2, type: "uscita", label: "Fornitore Gas SRL", amount: 340.2, date: "27 Ott" },
-        { id: 3, type: "entrata", label: "Fattura #220 Bianchi", amount: 1250, date: "24 Ott" },
-    ];
-
-    const alerts = [
-        { id: 1, message: "Pagamento INPS in scadenza il 12/11", type: "danger" },
-        { id: 2, message: "Verifica liquidazione IVA trimestrale", type: "warning" },
-    ];
-
     const handleLogout = async () => {
         setProfileVisible(false);
         await logout();
@@ -52,18 +37,14 @@ export default function DashboardScreen({ navigation }: any) {
     };
 
     const handleAddInvoice = () => {
-        Alert.alert(
-            "Nuova Fattura",
-            "Funzionalità in sviluppo: presto potrai creare e registrare fatture direttamente qui!"
-        );
-        // Esempio futuro: navigation.navigate("CreaFattura");
+        navigation.navigate("NewInvoice");
     };
 
     return (
         <View style={styles.container}>
             {/* HEADER */}
             <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
-                {/* 👤 Icona profilo (a destra) */}
+                {/* 👤 Icona profilo (in alto a destra) */}
                 <TouchableOpacity
                     style={styles.profileIcon}
                     onPress={() => setProfileVisible(true)}
@@ -85,17 +66,23 @@ export default function DashboardScreen({ navigation }: any) {
                 </View>
             </LinearGradient>
 
-            {/* CONTENUTO */}
             <ScrollView contentContainerStyle={styles.scroll}>
-                {/* CARD PANORAMICHE */}
-                <View style={styles.cardRow}>
-                    <SummaryCard icon="arrow-down" title="Entrate" value="+€8.920" color={Colors.accent} />
-                    <SummaryCard icon="arrow-up" title="Uscite" value="-€4.520" color={Colors.primary} />
-                </View>
+                {/* CARD: CREA NUOVA FATTURA */}
+                <TouchableOpacity style={styles.addInvoiceCard} onPress={handleAddInvoice}>
+                    <FontAwesome5 name="file-invoice-dollar" size={20} color={Colors.white} />
+                    <Text style={styles.addInvoiceText}>Crea una nuova fattura</Text>
+                </TouchableOpacity>
 
-                <View style={styles.cardRow}>
-                    <SummaryCard icon="chart-line" title="Media mensile" value="€1.820" color="#1ABC9C" />
-                    <SummaryCard icon="percentage" title="IVA Stimata" value="22%" color="#F1C40F" />
+                {/* CARD: PREVISIONI FISCALI */}
+                <View style={styles.taxForecastCard}>
+                    <Text style={styles.sectionTitle}>Previsioni fiscali</Text>
+                    <Text style={styles.forecastText}>
+                        Stima costi aziendali annuali: <Text style={styles.forecastValue}>€ 3.240</Text>
+                    </Text>
+                    <Text style={styles.forecastSub}>
+                        💡 Risparmia almeno il <Text style={{ fontWeight: "700" }}>25%</Text> del tuo
+                        fatturato mensile per evitare spese impreviste.
+                    </Text>
                 </View>
 
                 {/* GRAFICO */}
@@ -118,79 +105,40 @@ export default function DashboardScreen({ navigation }: any) {
                     />
                 </View>
 
-                {/* ➕ NUOVA FATTURA */}
-                <View style={styles.section}>
-                    <TouchableOpacity style={styles.addInvoiceCard} onPress={handleAddInvoice} activeOpacity={0.9}>
-                        <FontAwesome5 name="file-invoice" size={22} color={Colors.primaryDark} />
-                        <View style={{ marginLeft: 12 }}>
-                            <Text style={styles.addInvoiceTitle}>Aggiungi una nuova fattura</Text>
-                            <Text style={styles.addInvoiceSubtitle}>
-                                Registra velocemente un’entrata o un’uscita fiscale.
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-                </View>
-
-                {/* STIMA COSTI */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Previsioni fiscali</Text>
-                    <View style={styles.forecastBox}>
-                        <FontAwesome5 name="piggy-bank" size={20} color={Colors.primaryDark} />
-                        <View style={{ flex: 1, marginLeft: 12 }}>
-                            <Text style={styles.forecastText}>
-                                Stimiamo che la tua azienda dovrà sostenere circa{" "}
-                                <Text style={{ fontWeight: "700", color: Colors.primaryDark }}>
-                                    €{predictedYearlyCosts.toLocaleString("it-IT")}
-                                </Text>{" "}
-                                in costi annuali.
-                            </Text>
-                            <Text style={styles.forecastText}>
-                                Ti consigliamo di risparmiare almeno{" "}
-                                <Text style={{ fontWeight: "700", color: Colors.accent }}>
-                                    {suggestedSavingPercent}% del tuo fatturato
-                                </Text>{" "}
-                                per evitare spese inaspettate.
-                            </Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* AVVISI */}
-                <View style={styles.section}>
+                {/* CARD: AVVISI FISCALI */}
+                <View style={styles.alertCard}>
                     <Text style={styles.sectionTitle}>Avvisi fiscali</Text>
-                    {alerts.map((a) => (
-                        <View
-                            key={a.id}
-                            style={[
-                                styles.alertBox,
-                                a.type === "danger" && { borderLeftColor: Colors.danger },
-                                a.type === "warning" && { borderLeftColor: "#F1C40F" },
-                            ]}
-                        >
-                            <FontAwesome5
-                                name={a.type === "danger" ? "exclamation-triangle" : "info-circle"}
-                                size={14}
-                                color={a.type === "danger" ? Colors.danger : "#F1C40F"}
-                                style={{ marginRight: 8 }}
-                            />
-                            <Text style={styles.alertText}>{a.message}</Text>
-                        </View>
-                    ))}
+                    <View style={styles.alertItem}>
+                        <FontAwesome5 name="exclamation-circle" size={14} color={Colors.danger} />
+                        <Text style={styles.alertText}>
+                            Scadenza versamento IVA: <Text style={{ fontWeight: "700" }}>16 Novembre</Text>
+                        </Text>
+                    </View>
+                    <View style={styles.alertItem}>
+                        <FontAwesome5 name="calendar-check" size={14} color={Colors.danger} />
+                        <Text style={styles.alertText}>
+                            Acconto IRPEF previsto: <Text style={{ fontWeight: "700" }}>30 Novembre</Text>
+                        </Text>
+                    </View>
+                    <View style={styles.alertItem}>
+                        <FontAwesome5 name="info-circle" size={14} color={Colors.primaryDark} />
+                        <Text style={styles.alertText}>Aggiorna la situazione fatture per un calcolo preciso.</Text>
+                    </View>
                 </View>
             </ScrollView>
 
-            {/* 🔘 MODALE PROFILO */}
+            {/* MODALE PROFILO */}
             <Modal
                 isVisible={isProfileVisible}
                 animationIn="fadeInDown"
                 animationOut="fadeOutUp"
-                backdropOpacity={0.45}
+                backdropOpacity={0.5}
                 onBackdropPress={() => setProfileVisible(false)}
                 useNativeDriver
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalHeader}>
-                        <FontAwesome5 name="user-circle" size={42} color={Colors.primary} />
+                        <FontAwesome5 name="user-circle" size={40} color={Colors.primary} />
                         <Text style={styles.modalTitle}>{email}</Text>
                     </View>
 
@@ -224,16 +172,7 @@ export default function DashboardScreen({ navigation }: any) {
     );
 }
 
-function SummaryCard({ icon, title, value, color }: any) {
-    return (
-        <View style={[styles.summaryCard, { borderColor: color }]}>
-            <FontAwesome5 name={icon} size={18} color={color} />
-            <Text style={styles.summaryTitle}>{title}</Text>
-            <Text style={[styles.summaryValue, { color }]}>{value}</Text>
-        </View>
-    );
-}
-
+/* STILI */
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg },
     header: {
@@ -242,6 +181,7 @@ const styles = StyleSheet.create({
         paddingBottom: 30,
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
+        position: "relative",
     },
     profileIcon: {
         position: "absolute",
@@ -256,19 +196,29 @@ const styles = StyleSheet.create({
     balanceValue: { color: Colors.white, fontSize: 30, fontWeight: "800" },
     scroll: { padding: 20, paddingBottom: 100 },
 
-    // Card panoramiche
-    cardRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
-    summaryCard: {
-        flex: 1,
+    addInvoiceCard: {
+        backgroundColor: Colors.accent,
+        borderRadius: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        marginBottom: 18,
+    },
+    addInvoiceText: { color: Colors.white, fontWeight: "700", marginLeft: 10, fontSize: 15 },
+
+    taxForecastCard: {
         backgroundColor: Colors.white,
         borderRadius: 16,
-        borderWidth: 1.5,
-        padding: 14,
-        marginHorizontal: 5,
-        alignItems: "center",
+        padding: 16,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        marginBottom: 18,
     },
-    summaryTitle: { color: Colors.textMuted, fontSize: 12, marginTop: 4 },
-    summaryValue: { fontSize: 18, fontWeight: "700", marginTop: 2 },
+    sectionTitle: { fontWeight: "700", color: Colors.text, marginBottom: 10, fontSize: 16 },
+    forecastText: { color: Colors.text },
+    forecastValue: { color: Colors.primaryDark, fontWeight: "700" },
+    forecastSub: { color: Colors.textMuted, marginTop: 6 },
 
     chartCard: {
         backgroundColor: Colors.white,
@@ -282,63 +232,21 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
 
-    // Sezione aggiungi fattura
-    addInvoiceCard: {
-        flexDirection: "row",
-        alignItems: "center",
+    alertCard: {
         backgroundColor: Colors.white,
-        borderRadius: 14,
-        padding: 14,
+        borderRadius: 16,
+        padding: 16,
         borderWidth: 1,
         borderColor: Colors.border,
-        shadowColor: Colors.primaryDark,
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
+        marginBottom: 20,
     },
-    addInvoiceTitle: { fontWeight: "700", color: Colors.text },
-    addInvoiceSubtitle: { color: Colors.textMuted, fontSize: 13, marginTop: 2 },
+    alertItem: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+    alertText: { marginLeft: 8, color: Colors.text, fontSize: 13 },
 
-    section: { marginTop: 16 },
-    sectionTitle: { fontWeight: "700", color: Colors.text, marginBottom: 10, fontSize: 16 },
-
-    forecastBox: {
-        flexDirection: "row",
-        alignItems: "flex-start",
-        backgroundColor: Colors.white,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        padding: 12,
-        marginBottom: 14,
-        shadowColor: Colors.primaryDark,
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-    },
-    forecastText: { color: Colors.text, fontSize: 14, lineHeight: 20 },
-
-    alertBox: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: Colors.white,
-        borderRadius: 10,
-        borderLeftWidth: 4,
-        padding: 10,
-        marginBottom: 8,
-    },
-    alertText: { color: Colors.text, flex: 1 },
-
-    modalContainer: {
-        backgroundColor: Colors.white,
-        borderRadius: 18,
-        padding: 20,
-    },
+    modalContainer: { backgroundColor: Colors.white, borderRadius: 18, padding: 20 },
     modalHeader: { alignItems: "center", marginBottom: 20 },
     modalTitle: { marginTop: 8, fontWeight: "700", color: Colors.text },
-    modalButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 12,
-    },
+    modalButton: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
     modalText: { marginLeft: 10, fontSize: 15, color: Colors.text },
     divider: { height: 1, backgroundColor: Colors.border, marginVertical: 10 },
 });
