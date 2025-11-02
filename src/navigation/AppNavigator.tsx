@@ -1,28 +1,16 @@
-import { AuthProvider, useAuth } from "@context/AuthContext";
-import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator, NativeStackNavigationOptions } from "@react-navigation/native-stack";
-import React from "react";
+import { AuthProvider } from "@context/AuthContext";
+import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import React, { useRef, useState } from "react";
 
+// Screens
 import DashboardScreen from "@screens/DashboardScreen";
 import InvoicesScreen from "@screens/InvoicesScreen";
 import LoginScreen from "@screens/LoginScreen";
+import NewInvoiceScreen from "@screens/NewInvoiceScreen";
 import RegisterScreen from "@screens/RegisterScreen";
 import SplashScreen from "@screens/SplashScreen";
-import { StyleSheet, Text, View } from "react-native";
 
-// ✅ Placeholder temporaneo per “Nuova Fattura”
-function NewInvoiceScreen() {
-    return (
-        <View style={styles.centered}>
-            <Text style={styles.title}>Nuova Fattura</Text>
-            <Text style={styles.subtitle}>
-                Qui potrai creare una nuova fattura (form in sviluppo).
-            </Text>
-        </View>
-    );
-}
-
-// ✅ Tipi di rotte
 export type RootStackParamList = {
     Splash: undefined;
     Login: undefined;
@@ -32,55 +20,43 @@ export type RootStackParamList = {
     NewInvoice: undefined;
 };
 
-// ✅ Stack configurato
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function RootStack() {
-    const { isLoading, token } = useAuth();
-    const screenOptions: NativeStackNavigationOptions = { headerShown: false };
-
-    return (
-        <NavigationContainer>
-            <Stack.Navigator {...({ screenOptions } as any)}>
-                {isLoading ? (
-                    <Stack.Screen name="Splash" component={SplashScreen} />
-                ) : token ? (
-                    <>
-                        <Stack.Screen name="Dashboard" component={DashboardScreen} />
-                        <Stack.Screen name="Invoices" component={InvoicesScreen} />
-                        <Stack.Screen name="NewInvoice" component={NewInvoiceScreen} />
-                    </>
-                ) : (
-                    <>
-                        <Stack.Screen name="Login" component={LoginScreen} />
-                        <Stack.Screen name="Register" component={RegisterScreen} />
-                        <Stack.Screen name="Dashboard" component={DashboardScreen} />
-                        <Stack.Screen name="Invoices" component={InvoicesScreen} />
-                        <Stack.Screen name="NewInvoice" component={NewInvoiceScreen} />
-                    </>
-                )}
-            </Stack.Navigator>
-        </NavigationContainer>
-    );
-}
-
-// ✅ Export principale
 export default function AppNavigator() {
+    const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
+    const [splashDone, setSplashDone] = useState(false);
+
+    const handleSplashFinish = (next: "login" | "dashboard") => {
+        setSplashDone(true);
+        const route = next === "dashboard" ? "Dashboard" : "Login";
+
+        navigationRef.current?.reset({
+            index: 0,
+            routes: [{ name: route }],
+        });
+    };
+
     return (
         <AuthProvider>
-            <RootStack />
+            <NavigationContainer ref={navigationRef}>
+                <Stack.Navigator
+                    id={undefined} // ✅ fix definitivo per il bug di tipizzazione
+                    initialRouteName="Splash"
+                    screenOptions={{ headerShown: false }}
+                >
+                    {!splashDone && (
+                        <Stack.Screen name="Splash">
+                            {() => <SplashScreen onFinish={handleSplashFinish} />}
+                        </Stack.Screen>
+                    )}
+
+                    <Stack.Screen name="Login" component={LoginScreen} />
+                    <Stack.Screen name="Register" component={RegisterScreen} />
+                    <Stack.Screen name="Dashboard" component={DashboardScreen} />
+                    <Stack.Screen name="Invoices" component={InvoicesScreen} />
+                    <Stack.Screen name="NewInvoice" component={NewInvoiceScreen} />
+                </Stack.Navigator>
+            </NavigationContainer>
         </AuthProvider>
     );
 }
-
-// ✅ Stili minimi
-const styles = StyleSheet.create({
-    centered: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-    },
-    title: { fontSize: 22, fontWeight: "700" },
-    subtitle: { marginTop: 8, color: "#555", textAlign: "center" },
-});
