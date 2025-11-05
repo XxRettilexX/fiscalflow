@@ -32,6 +32,12 @@
       ],
       "@utils/*": [
         "src/utils/*"
+      ],
+      "@navigation/*": [
+        "src/navigation/*"
+      ],
+      "@api/index.ts": [
+        "src/api/index.ts"
       ]
     }
   }

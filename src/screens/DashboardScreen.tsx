@@ -1,222 +1,143 @@
 import { Colors } from "@constants/colors";
-import { useAuth } from "@context/AuthContext";
 import { FontAwesome5 } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Notifications from "expo-notifications";
-import React, { useState } from "react";
-import { Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { LineChart } from "react-native-gifted-charts";
-import Modal from "react-native-modal";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { LineChart } from "react-native-chart-kit";
+import { api } from "../api";
 
-const { width } = Dimensions.get("window");
+const screenWidth = Dimensions.get("window").width - 32;
 
-export default function DashboardScreen({ navigation }: any) {
-    const { email, logout } = useAuth();
-    const [isProfileVisible, setProfileVisible] = useState(false);
+interface Invoice {
+    id: number;
+    number: string;
+    client: string;
+    amount: number;
+    date: string;
+    status: string;
+}
 
-    const grossBalance = 1200;
-    const estimatedNet = 2340;
-    const monthlyData = [
-        { value: 20, label: "GEN" },
-        { value: 25, label: "FEB" },
-        { value: 32, label: "MAR" },
-        { value: 37, label: "APR" },
-        { value: 42, label: "MAG" },
-    ];
+interface Stat {
+    month: string;
+    total: number;
+}
 
-    const invoices = [
-        { id: "1", title: "Alta S.11", date: "30 mag 2025", status: "Pagata" },
-        { id: "2", title: "Studio Bianchi", date: "7 mag 2025", status: "In attesa" },
-    ];
+export default function DashboardScreen() {
+    const navigation = useNavigation();
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState<Stat[]>([]);
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [alerts, setAlerts] = useState<any[]>([]);
 
-    const handleLogout = async () => {
-        setProfileVisible(false);
-        await logout();
-        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const [statsRes, invoicesRes, alertsRes] = await Promise.all([
+                    api.getInvoiceStats(),
+                    api.getInvoices(),
+                    api.getAlerts(),
+                ]);
+                setStats(statsRes);
+                setInvoices(invoicesRes.slice(0, 3)); // mostriamo solo le ultime 3
+                setAlerts(alertsRes);
+            } catch (err) {
+                console.error("Errore caricamento dashboard:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, []);
+
+    if (loading) {
+        return (
+            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={{ marginTop: 10 }}>Caricamento dati...</Text>
+            </View>
+        );
+    }
+
+    const chartData = {
+        labels: stats.map((s) => s.month),
+        datasets: [{ data: stats.map((s) => s.total) }],
     };
 
-    const handleAddInvoice = () => navigation.navigate("NewInvoice");
-
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
             {/* HEADER */}
             <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
-                <View style={styles.headerTop}>
-                    <View>
-                        <Text style={styles.appName}>FiscalFlow</Text>
-                        <Text style={styles.greeting}>Gestisci il tuo flusso</Text>
-                    </View>
-
-                    <TouchableOpacity
-                        style={styles.profileButton}
-                        onPress={() => setProfileVisible(true)}
-                        activeOpacity={0.8}
-                    >
-                        <FontAwesome5 name="user-circle" size={26} color={Colors.white} />
-                    </TouchableOpacity>
-                </View>
-
-                {/* CARD PRINCIPALE */}
-                <View style={styles.summaryCard}>
-                    <Text style={styles.balanceTitle}>Flusso del mese</Text>
-                    <Text style={styles.balanceValue}>+{grossBalance.toLocaleString("it-IT")} €</Text>
-
-                    {/* 📈 Grafico ottimizzato */}
-                    <View style={styles.chartWrapper}>
-                        <LineChart
-                            data={monthlyData}
-                            curved
-                            color1={Colors.accent}
-                            areaChart
-                            height={120}
-                            width={width - 80}
-                            startOpacity={0.3}
-                            endOpacity={0}
-                            thickness={3}
-                            yAxisThickness={0}
-                            xAxisThickness={0}
-                            hideDataPoints
-                        />
-                    </View>
-
-                    <View style={styles.chartLabels}>
-                        <Text style={styles.chartLabelText}>Entrate</Text>
-                        <Text style={styles.chartLabelText}>Spese</Text>
-                    </View>
-                </View>
+                <Text style={styles.headerTitle}>Dashboard</Text>
+                <Text style={styles.headerSubtitle}>Andamento e riepilogo contabile</Text>
             </LinearGradient>
 
-            {/* CONTENUTO */}
-            <ScrollView contentContainerStyle={styles.scroll}>
-                {/* 🧾 Nuova Fattura */}
-                <TouchableOpacity style={styles.newInvoiceBtn} onPress={handleAddInvoice}>
-                    <FontAwesome5 name="plus" size={14} color={Colors.white} />
-                    <Text style={styles.newInvoiceText}>Nuova fattura</Text>
-                </TouchableOpacity>
+            {/* GRAFICO */}
+            <View style={styles.chartContainer}>
+                <Text style={styles.sectionTitle}>Andamento Fatturato</Text>
+                <LineChart
+                    data={chartData}
+                    width={screenWidth}
+                    height={220}
+                    chartConfig={{
+                        backgroundColor: Colors.bg,
+                        backgroundGradientFrom: Colors.primary,
+                        backgroundGradientTo: Colors.primaryDark,
+                        decimalPlaces: 2,
+                        color: (opacity = 1) => `rgba(255,255,255,${opacity})`,
+                        labelColor: () => "#fff",
+                        propsForDots: { r: "5", strokeWidth: "2", stroke: "#fff" },
+                    }}
+                    bezier
+                    style={styles.chart}
+                />
+            </View>
 
-                {/* 📊 Previsioni fiscali */}
-                <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>Previsioni fiscali</Text>
-                    <LineChart
-                        data={monthlyData}
-                        color1={Colors.primary}
-                        color2={Colors.accent}
-                        curved
-                        height={150}
-                        areaChart
-                        startOpacity={0.25}
-                        endOpacity={0}
-                        hideDataPoints
-                        spacing={60}
-                        yAxisThickness={0}
-                        xAxisThickness={0}
-                    />
-                    <Text style={styles.netEstimate}>
-                        Netto stimato: <Text style={styles.netValue}>{estimatedNet.toLocaleString("it-IT")} €</Text>
-                    </Text>
-                </View>
-
-                {/* 💰 Fatture */}
-                <View style={styles.card}>
-                    <View style={styles.cardHeader}>
-                        <Text style={styles.sectionTitle}>Fatture</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate("Invoices")}>
-                            <Text style={styles.link}>Vedi tutte</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Fix ScrollView / FlatList */}
-                    <FlatList
-                        data={invoices}
-                        keyExtractor={(item) => item.id}
-                        scrollEnabled={false}
-                        renderItem={({ item }) => (
-                            <View style={styles.invoiceItem}>
-                                <View>
-                                    <Text style={styles.invoiceTitle}>{item.title}</Text>
-                                    <Text style={styles.invoiceDate}>{item.date}</Text>
-                                </View>
-                                <Text
-                                    style={[
-                                        styles.invoiceStatus,
-                                        item.status === "Pagata" ? styles.paid : styles.pending,
-                                    ]}
-                                >
-                                    {item.status}
+            {/* ULTIME FATTURE */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Ultime Fatture</Text>
+                <FlatList
+                    data={invoices}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={({ item }) => (
+                        <View style={styles.card}>
+                            <View style={styles.cardHeader}>
+                                <Text style={styles.cardTitle}>Fattura {item.number}</Text>
+                                <Text style={[styles.badge, { color: item.status === "pagata" ? Colors.accent : Colors.primary }]}>
+                                    {item.status.toUpperCase()}
                                 </Text>
                             </View>
-                        )}
-                    />
-                </View>
-            </ScrollView>
+                            <Text style={styles.cardClient}>{item.client}</Text>
+                            <Text style={styles.cardAmount}>€ {item.amount.toFixed(2)}</Text>
+                        </View>
+                    )}
+                />
+                <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.navigate("Invoices" as never)}>
+                    <Text style={styles.linkText}>Vedi tutte</Text>
+                </TouchableOpacity>
+            </View>
 
-            {/* 🔘 MODALE PROFILO */}
-            <Modal
-                isVisible={isProfileVisible}
-                animationIn="fadeInDown"
-                animationOut="fadeOutUp"
-                backdropOpacity={0.5}
-                onBackdropPress={() => setProfileVisible(false)}
-                useNativeDriver
-            >
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
-                        <FontAwesome5 name="user-circle" size={40} color={Colors.primary} />
-                        <Text style={styles.modalTitle}>{email}</Text>
-                    </View>
+            {/* AVVISI FISCALI */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Avvisi Fiscali</Text>
+                {alerts.length === 0 ? (
+                    <Text style={styles.emptyText}>Nessun avviso programmato.</Text>
+                ) : (
+                    alerts.map((alert) => (
+                        <View key={alert.id} style={styles.alertCard}>
+                            <Text style={styles.alertTitle}>{alert.title}</Text>
+                            <Text style={styles.alertDate}>Scadenza: {alert.date}</Text>
+                            <Text style={styles.alertDesc}>{alert.description}</Text>
+                        </View>
+                    ))
+                )}
+            </View>
 
-                    <TouchableOpacity style={styles.modalButton}>
-                        <FontAwesome5 name="user-edit" size={16} color={Colors.text} />
-                        <Text style={styles.modalText}>Modifica profilo</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.modalButton}>
-                        <FontAwesome5 name="cog" size={16} color={Colors.text} />
-                        <Text style={styles.modalText}>Impostazioni</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.modalButton}>
-                        <FontAwesome5 name="file-invoice" size={16} color={Colors.text} />
-                        <Text style={styles.modalText}>Le mie fatture</Text>
-                    </TouchableOpacity>
-
-                    {/* 🔔 TEST NOTIFICA */}
-                    <TouchableOpacity
-                        style={[styles.modalButton, { marginTop: 15 }]}
-                        onPress={async () => {
-                            await Notifications.scheduleNotificationAsync({
-                                content: {
-                                    title: "🔔 Test Notifica FiscalFlow",
-                                    body: "Se vedi questo messaggio, le notifiche funzionano perfettamente!",
-                                    sound: "default",
-                                },
-                                trigger: {
-                                    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-                                    seconds: 5,
-                                },
-                            });
-                        }}
-
-                    >
-                        <FontAwesome5 name="bell" size={16} color={Colors.primary} />
-                        <Text style={[styles.modalText, { color: Colors.primary }]}>
-                            Test Notifica
-                        </Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.divider} />
-
-                    <TouchableOpacity
-                        style={[styles.modalButton, { marginTop: 10 }]}
-                        onPress={handleLogout}
-                    >
-                        <FontAwesome5 name="sign-out-alt" size={16} color={Colors.danger} />
-                        <Text style={[styles.modalText, { color: Colors.danger }]}>Logout</Text>
-                    </TouchableOpacity>
-                </View>
-            </Modal>
-
-        </View>
+            {/* FLOATING BUTTON */}
+            <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate("NewInvoice" as never)}>
+                <FontAwesome5 name="plus" size={22} color={Colors.white} />
+            </TouchableOpacity>
+        </ScrollView>
     );
 }
 
@@ -224,79 +145,54 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg },
     header: {
         paddingTop: 60,
+        paddingBottom: 30,
         paddingHorizontal: 20,
-        paddingBottom: 25,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
     },
-    headerTop: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 16,
-    },
-    appName: { color: Colors.white, fontSize: 26, fontWeight: "800" },
-    greeting: { color: "#E9EDF4", fontSize: 14 },
-    profileButton: { backgroundColor: "rgba(255,255,255,0.15)", padding: 8, borderRadius: 50 },
-    summaryCard: {
-        backgroundColor: Colors.white,
-        borderRadius: 18,
-        padding: 16,
-        shadowColor: "#000",
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-    },
-    balanceTitle: { color: Colors.textMuted, fontSize: 14 },
-    balanceValue: { color: Colors.text, fontSize: 28, fontWeight: "700", marginVertical: 4 },
-    chartWrapper: { alignItems: "center", marginTop: 10 },
-    chartLabels: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginTop: 6,
-        paddingHorizontal: 8,
-    },
-    chartLabelText: { fontSize: 12, color: Colors.textMuted },
-    scroll: { paddingHorizontal: 20, paddingTop: 15, paddingBottom: 80 },
-    newInvoiceBtn: {
-        backgroundColor: Colors.primary,
-        borderRadius: 12,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: 12,
-        marginBottom: 16,
-    },
-    newInvoiceText: { color: Colors.white, fontWeight: "700", marginLeft: 8 },
+    headerTitle: { color: Colors.white, fontSize: 24, fontWeight: "800" },
+    headerSubtitle: { color: "#E6EDF7", marginTop: 4, fontSize: 14 },
+    chartContainer: { padding: 16 },
+    chart: { borderRadius: 16, marginTop: 10 },
+    section: { padding: 16 },
+    sectionTitle: { fontSize: 18, fontWeight: "700", color: Colors.text, marginBottom: 10 },
     card: {
         backgroundColor: Colors.white,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
+        borderRadius: 12,
         borderWidth: 1,
         borderColor: Colors.border,
+        padding: 12,
+        marginBottom: 10,
     },
-    sectionTitle: { fontWeight: "700", color: Colors.text, fontSize: 16 },
-    link: { color: Colors.primary, fontWeight: "600" },
     cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    invoiceItem: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
+    cardTitle: { fontWeight: "700", color: Colors.text },
+    badge: { fontWeight: "600" },
+    cardClient: { color: Colors.textMuted, marginTop: 6 },
+    cardAmount: { fontWeight: "700", fontSize: 15, color: Colors.primary, marginTop: 4 },
+    linkBtn: { alignSelf: "flex-end", marginTop: 4 },
+    linkText: { color: Colors.primary, fontWeight: "600" },
+    alertCard: {
+        backgroundColor: Colors.white,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 10,
     },
-    invoiceTitle: { color: Colors.text, fontWeight: "600" },
-    invoiceDate: { color: Colors.textMuted, fontSize: 12 },
-    invoiceStatus: { fontWeight: "600", fontSize: 13 },
-    paid: { color: "green" },
-    pending: { color: "orange" },
-    netEstimate: { marginTop: 10, fontSize: 14, color: Colors.textMuted },
-    netValue: { color: Colors.text, fontWeight: "700", fontSize: 18 },
-
-    modalContainer: { backgroundColor: Colors.white, borderRadius: 18, padding: 20 },
-    modalHeader: { alignItems: "center", marginBottom: 20 },
-    modalTitle: { marginTop: 8, fontWeight: "700", color: Colors.text },
-    modalButton: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
-    modalText: { marginLeft: 10, fontSize: 15, color: Colors.text },
-    divider: { height: 1, backgroundColor: Colors.border, marginVertical: 10 },
+    alertTitle: { fontWeight: "700", color: Colors.text },
+    alertDate: { color: Colors.textMuted, fontSize: 12, marginTop: 4 },
+    alertDesc: { color: Colors.text, marginTop: 6, fontSize: 13 },
+    emptyText: { color: Colors.textMuted, textAlign: "center", marginVertical: 20 },
+    fab: {
+        position: "absolute",
+        bottom: 30,
+        right: 25,
+        backgroundColor: Colors.primary,
+        borderRadius: 50,
+        padding: 18,
+        shadowColor: Colors.primaryDark,
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 5,
+    },
 });

@@ -1,142 +1,172 @@
 import { Colors } from "@constants/colors";
 import { FontAwesome5 } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useMemo, useState } from "react";
-import {
-    FlatList,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import React, { useEffect, useState } from "react";
+import { FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { api } from "../api";
 
-type Invoice = {
+interface Invoice {
     id: number;
-    type: "entrata" | "uscita";
-    label: string;
-    date: string;
+    number: string;
+    client: string;
     amount: number;
-    paid: boolean;
-};
+    date: string;
+    due_date: string;
+    status: "pagata" | "in attesa" | "scaduta";
+}
 
-export default function InvoicesScreen({ navigation }: any) {
-    const [filter, setFilter] = useState<"tutte" | "entrate" | "uscite" | "nonPagate">("tutte");
+export default function InvoicesScreen() {
+    const navigation = useNavigation();
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState("");
+    const [filter, setFilter] = useState<"tutte" | "pagate" | "attesa" | "scadute">("tutte");
 
-    const invoices: Invoice[] = [
-        { id: 1, type: "entrata", label: "Fattura #324 Rossi Srl", date: "01/11/25", amount: 1250, paid: true },
-        { id: 2, type: "uscita", label: "Fornitore energia S.p.A", date: "29/10/25", amount: 310.75, paid: false },
-        { id: 3, type: "entrata", label: "Fattura #322 Bianchi SRL", date: "25/10/25", amount: 890, paid: true },
-        { id: 4, type: "uscita", label: "Commercialista", date: "20/10/25", amount: 250, paid: true },
-    ];
+    useEffect(() => {
+        const loadInvoices = async () => {
+            try {
+                const data = await api.getInvoices();
+                setInvoices(data);
+            } catch (err) {
+                console.error("Errore caricamento fatture:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadInvoices();
+    }, []);
 
-    const filtered = useMemo(() => {
-        switch (filter) {
-            case "entrate":
-                return invoices.filter(i => i.type === "entrata");
-            case "uscite":
-                return invoices.filter(i => i.type === "uscita");
-            case "nonPagate":
-                return invoices.filter(i => !i.paid);
-            default:
-                return invoices;
-        }
-    }, [filter]);
+    const filteredInvoices = invoices.filter((inv) => {
+        const matchSearch =
+            inv.client.toLowerCase().includes(search.toLowerCase()) ||
+            inv.number.includes(search);
+        const matchFilter =
+            filter === "tutte" ||
+            (filter === "pagate" && inv.status === "pagata") ||
+            (filter === "attesa" && inv.status === "in attesa") ||
+            (filter === "scadute" && inv.status === "scaduta");
+        return matchSearch && matchFilter;
+    });
 
-    const total = useMemo(() => {
-        const entrate = invoices.filter(i => i.type === "entrata").reduce((a, b) => a + b.amount, 0);
-        const uscite = invoices.filter(i => i.type === "uscita").reduce((a, b) => a + b.amount, 0);
-        return entrate - uscite;
-    }, [invoices]);
+    const renderStatusBadge = (status: Invoice["status"]) => {
+        const color =
+            status === "pagata"
+                ? Colors.accent
+                : status === "scaduta"
+                    ? Colors.danger
+                    : Colors.primary;
+        return (
+            <View style={[styles.badge, { backgroundColor: color + "22", borderColor: color }]}>
+                <Text style={[styles.badgeText, { color }]}>{status.toUpperCase()}</Text>
+            </View>
+        );
+    };
 
-    return (
-        <SafeAreaView style={styles.container}>
-            {/* HEADER */}
-            <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
-                <Text style={styles.headerTitle}>Le tue fatture</Text>
-                <Text style={styles.headerSubtitle}>
-                    Saldo netto:{" "}
-                    <Text style={{ fontWeight: "800" }}>
-                        € {total.toLocaleString("it-IT", { minimumFractionDigits: 2 })}
-                    </Text>
-                </Text>
-
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => navigation.navigate("NewInvoice")}
-                >
-                    <FontAwesome5 name="plus" color={Colors.white} size={16} />
-                </TouchableOpacity>
-            </LinearGradient>
-
-            {/* FILTRI */}
-            <View style={styles.filters}>
-                {["tutte", "entrate", "uscite", "nonPagate"].map(f => (
-                    <TouchableOpacity
-                        key={f}
-                        style={[styles.filterButton, filter === f && styles.filterActive]}
-                        onPress={() => setFilter(f as any)}
-                    >
-                        <Text
-                            style={[
-                                styles.filterText,
-                                filter === f && { color: Colors.white, fontWeight: "700" },
-                            ]}
-                        >
-                            {f === "tutte"
-                                ? "Tutte"
-                                : f === "entrate"
-                                    ? "Entrate"
-                                    : f === "uscite"
-                                        ? "Uscite"
-                                        : "Da pagare"}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
+    const renderInvoice = ({ item }: { item: Invoice }) => (
+        <View style={styles.card}>
+            <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Fattura {item.number}</Text>
+                {renderStatusBadge(item.status)}
             </View>
 
-            {/* LISTA FATTURE */}
-            <FlatList
-                data={filtered}
-                keyExtractor={item => item.id.toString()}
-                contentContainerStyle={{ padding: 16 }}
-                renderItem={({ item }) => (
-                    <View style={styles.card}>
-                        <View style={styles.cardLeft}>
-                            <FontAwesome5
-                                name={item.type === "entrata" ? "arrow-down" : "arrow-up"}
-                                size={18}
-                                color={item.type === "entrata" ? Colors.accent : Colors.danger}
-                                style={{ marginRight: 10 }}
-                            />
-                            <View>
-                                <Text style={styles.cardTitle}>{item.label}</Text>
-                                <Text style={styles.cardSubtitle}>{item.date}</Text>
-                            </View>
-                        </View>
-                        <View style={styles.cardRight}>
+            <Text style={styles.cardClient}>{item.client}</Text>
+
+            <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Importo:</Text>
+                <Text style={styles.cardValue}>€ {item.amount.toFixed(2)}</Text>
+            </View>
+            <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Emissione:</Text>
+                <Text style={styles.cardValue}>{item.date}</Text>
+            </View>
+            <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Scadenza:</Text>
+                <Text style={styles.cardValue}>{item.due_date}</Text>
+            </View>
+
+            <View style={styles.actions}>
+                <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: Colors.primary }]}
+                    onPress={() => (navigation as any).navigate("InvoiceDetail", { id: item.id })}
+
+
+                >
+                    <FontAwesome5 name="file-alt" size={14} color={Colors.white} />
+                    <Text style={styles.actionText}>Visualizza</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: Colors.accent }]}
+                    onPress={() => (navigation as any).navigate("EditInvoice", { id: item.id })}
+
+
+                >
+                    <FontAwesome5 name="edit" size={14} color={Colors.white} />
+                    <Text style={styles.actionText}>Modifica</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    return (
+        <View style={styles.container}>
+            <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
+                <Text style={styles.headerTitle}>Le mie Fatture</Text>
+                <Text style={styles.headerSubtitle}>Gestisci le tue operazioni contabili</Text>
+            </LinearGradient>
+
+            <View style={styles.searchSection}>
+                <TextInput
+                    placeholder="Cerca per cliente o numero"
+                    placeholderTextColor={Colors.textMuted}
+                    value={search}
+                    onChangeText={setSearch}
+                    style={styles.searchInput}
+                />
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                    {["tutte", "pagate", "attesa", "scadute"].map((f) => (
+                        <TouchableOpacity
+                            key={f}
+                            style={[
+                                styles.filterBtn,
+                                filter === f && { backgroundColor: Colors.primary },
+                            ]}
+                            onPress={() => setFilter(f as any)}
+                        >
                             <Text
                                 style={[
-                                    styles.amount,
-                                    item.type === "entrata" && { color: Colors.accent },
-                                    item.type === "uscita" && { color: Colors.danger },
+                                    styles.filterText,
+                                    filter === f && { color: Colors.white },
                                 ]}
                             >
-                                {item.type === "entrata" ? "+" : "-"}€{item.amount.toFixed(2)}
+                                {f.toUpperCase()}
                             </Text>
-                            <Text
-                                style={[
-                                    styles.status,
-                                    item.paid ? { color: "#16A34A" } : { color: "#F59E0B" },
-                                ]}
-                            >
-                                {item.paid ? "Pagata" : "Da pagare"}
-                            </Text>
-                        </View>
-                    </View>
-                )}
-            />
-        </SafeAreaView>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+
+            {loading ? (
+                <Text style={{ textAlign: "center", marginTop: 30 }}>Caricamento...</Text>
+            ) : (
+                <FlatList
+                    data={filteredInvoices}
+                    renderItem={renderInvoice}
+                    keyExtractor={(item) => item.id.toString()}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingBottom: 120 }}
+                />
+            )}
+
+            <TouchableOpacity
+                style={styles.fab}
+                onPress={() => navigation.navigate("NewInvoice" as never)}
+            >
+                <FontAwesome5 name="plus" size={22} color={Colors.white} />
+            </TouchableOpacity>
+        </View>
     );
 }
 
@@ -148,49 +178,85 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
-        position: "relative",
     },
     headerTitle: { color: Colors.white, fontSize: 24, fontWeight: "800" },
-    headerSubtitle: { color: "#E6EDF7", marginTop: 4 },
-    addButton: {
-        position: "absolute",
-        right: 20,
-        top: 65,
-        backgroundColor: Colors.accent,
-        padding: 10,
-        borderRadius: 10,
-    },
-    filters: {
-        flexDirection: "row",
-        justifyContent: "space-around",
+    headerSubtitle: { color: "#E6EDF7", marginTop: 4, fontSize: 14 },
+    searchSection: { padding: 16 },
+    searchInput: {
         backgroundColor: Colors.white,
-        margin: 16,
-        borderRadius: 12,
         borderWidth: 1,
         borderColor: Colors.border,
-        paddingVertical: 8,
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        color: Colors.text,
+        marginBottom: 12,
     },
-    filterButton: { paddingVertical: 6, paddingHorizontal: 10 },
-    filterActive: { backgroundColor: Colors.primary, borderRadius: 8 },
-    filterText: { color: Colors.text, fontSize: 14 },
+    filterScroll: { flexDirection: "row" },
+    filterBtn: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        backgroundColor: Colors.white,
+        marginRight: 8,
+    },
+    filterText: { color: Colors.text, fontSize: 12, fontWeight: "600" },
     card: {
         backgroundColor: Colors.white,
-        borderRadius: 14,
-        padding: 14,
-        marginBottom: 10,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
+        marginHorizontal: 16,
+        marginVertical: 8,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: Colors.border,
+        padding: 16,
         shadowColor: Colors.primaryDark,
         shadowOpacity: 0.06,
         shadowRadius: 6,
+        elevation: 2,
     },
-    cardLeft: { flexDirection: "row", alignItems: "center" },
-    cardTitle: { color: Colors.text, fontWeight: "700" },
-    cardSubtitle: { color: Colors.textMuted, fontSize: 12 },
-    cardRight: { alignItems: "flex-end" },
-    amount: { fontSize: 16, fontWeight: "700" },
-    status: { fontSize: 12, marginTop: 4 },
+    cardHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+    cardTitle: { fontWeight: "700", fontSize: 16, color: Colors.text },
+    cardClient: { color: Colors.textMuted, marginVertical: 6, fontSize: 13 },
+    cardRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 2 },
+    cardLabel: { color: Colors.textMuted, fontSize: 12 },
+    cardValue: { color: Colors.text, fontSize: 13, fontWeight: "600" },
+    badge: {
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+    },
+    badgeText: { fontSize: 11, fontWeight: "700" },
+    actions: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginTop: 12,
+    },
+    actionBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        gap: 6,
+    },
+    actionText: { color: Colors.white, fontSize: 13, fontWeight: "600" },
+    fab: {
+        position: "absolute",
+        bottom: 30,
+        right: 25,
+        backgroundColor: Colors.primary,
+        borderRadius: 50,
+        padding: 18,
+        shadowColor: Colors.primaryDark,
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 5,
+    },
 });

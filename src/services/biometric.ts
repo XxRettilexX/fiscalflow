@@ -1,10 +1,13 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
 
+/**
+ * 🔐 Esegue l’autenticazione biometrica (FaceID / TouchID)
+ */
 export const performBiometricAuth = async () => {
     try {
         const hasHardware = await LocalAuthentication.hasHardwareAsync();
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-        const supported = await LocalAuthentication.supportedAuthenticationTypesAsync();
 
         if (!hasHardware) {
             return { success: false, message: "Il dispositivo non supporta la biometria." };
@@ -14,41 +17,50 @@ export const performBiometricAuth = async () => {
             return { success: false, message: "Nessun volto o impronta registrata." };
         }
 
-        type ExtendedAuthResult = {
-            success: boolean;
-            error?: string;
-            warning?: string;
-        };
-
-        const result = (await LocalAuthentication.authenticateAsync({
+        const result = await LocalAuthentication.authenticateAsync({
             promptMessage: "Autenticati per accedere a FiscalFlow",
             fallbackLabel: "Usa codice di sblocco",
             disableDeviceFallback: false,
             requireConfirmation: false,
-            promptDescription: "Sicurezza rapida e affidabile",
-        })) as ExtendedAuthResult;
+        });
 
-
-        if (result.success) {
-            return { success: true };
-        } else {
-            // Rileva errori noti (dalla doc)
-            switch (result.error) {
-                case "lockout":
-                    return { success: false, message: "Troppi tentativi falliti. Sblocca il dispositivo e riprova." };
-                case "not_enrolled":
-                    return { success: false, message: "Nessuna impronta o volto registrato." };
-                case "not_available":
-                    return { success: false, message: "Autenticazione non disponibile su questo dispositivo." };
-                case "user_cancel":
-                case "system_cancel":
-                    return { success: false, message: "Autenticazione annullata." };
-                default:
-                    return { success: false, message: "Autenticazione non riuscita. Riprova." };
-            }
-        }
+        return { success: result.success };
     } catch (e) {
-        console.log("Errore biometrico:", e);
+        console.error("Errore biometrico:", e);
         return { success: false, message: "Errore di sistema durante l’autenticazione." };
+    }
+};
+
+/**
+ * 💾 Salva un token di sessione (JWT o simile)
+ */
+export const saveToken = async (token: string) => {
+    try {
+        await AsyncStorage.setItem("@fiscalflow_token", token);
+    } catch (e) {
+        console.error("Errore salvataggio token:", e);
+    }
+};
+
+/**
+ * 📥 Recupera il token salvato
+ */
+export const getToken = async (): Promise<string | null> => {
+    try {
+        return await AsyncStorage.getItem("@fiscalflow_token");
+    } catch (e) {
+        console.error("Errore recupero token:", e);
+        return null;
+    }
+};
+
+/**
+ * 🧹 Cancella il token (logout)
+ */
+export const clearToken = async () => {
+    try {
+        await AsyncStorage.removeItem("@fiscalflow_token");
+    } catch (e) {
+        console.error("Errore cancellazione token:", e);
     }
 };

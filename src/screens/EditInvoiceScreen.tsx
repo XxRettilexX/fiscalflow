@@ -1,37 +1,57 @@
 import { Colors } from "@constants/colors";
 import { FontAwesome5 } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { api } from "../api";
+import { RootStackParamList } from "../navigation/AppNavigator";
 
-export default function NewInvoiceScreen() {
-    const navigation = useNavigation();
+type EditInvoiceRoute = RouteProp<RootStackParamList, "EditInvoice">;
+type EditInvoiceNav = NativeStackNavigationProp<RootStackParamList, "EditInvoice">;
+
+export default function EditInvoiceScreen() {
+    const route = useRoute<EditInvoiceRoute>();
+    const navigation = useNavigation<EditInvoiceNav>();
+    const { id } = route.params;
+
     const [client, setClient] = useState("");
     const [amount, setAmount] = useState("");
     const [dueDate, setDueDate] = useState("");
     const [status, setStatus] = useState<"attesa" | "da pagare" | "pagata">("attesa");
     const [description, setDescription] = useState("");
 
-    const handleSubmit = async () => {
-        if (!client || !amount || !dueDate) {
-            Alert.alert("Attenzione", "Compila tutti i campi obbligatori.");
-            return;
-        }
+    useEffect(() => {
+        const loadInvoice = async () => {
+            try {
+                const data = await api.getInvoice(id);
+                setClient(data.client);
+                setAmount(String(data.amount));
+                setDueDate(data.due_date);
+                setStatus(data.status);
+                setDescription(data.description);
+            } catch (err) {
+                Alert.alert("Errore", "Impossibile caricare la fattura.");
+                console.error(err);
+            }
+        };
+        loadInvoice();
+    }, [id]);
 
+    const handleSave = async () => {
         try {
-            await api.createInvoice({
+            await api.updateInvoice(id, {
                 client,
                 amount: parseFloat(amount),
                 due_date: dueDate,
                 status,
                 description,
             });
-            Alert.alert("✅ Successo", "Fattura creata correttamente!");
-            navigation.navigate("Invoices" as never);
+            Alert.alert("✅ Successo", "Fattura aggiornata correttamente!");
+            navigation.goBack();
         } catch (err) {
-            Alert.alert("Errore", "Impossibile creare la fattura.");
+            Alert.alert("Errore", "Impossibile salvare le modifiche.");
             console.error(err);
         }
     };
@@ -42,14 +62,14 @@ export default function NewInvoiceScreen() {
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                     <FontAwesome5 name="arrow-left" size={18} color={Colors.white} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Nuova Fattura</Text>
+                <Text style={styles.headerTitle}>Modifica Fattura</Text>
             </LinearGradient>
 
             <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.label}>Cliente *</Text>
+                <Text style={styles.label}>Cliente</Text>
                 <TextInput style={styles.input} value={client} onChangeText={setClient} />
 
-                <Text style={styles.label}>Importo (€) *</Text>
+                <Text style={styles.label}>Importo (€)</Text>
                 <TextInput
                     style={styles.input}
                     keyboardType="numeric"
@@ -57,7 +77,7 @@ export default function NewInvoiceScreen() {
                     onChangeText={setAmount}
                 />
 
-                <Text style={styles.label}>Data di scadenza *</Text>
+                <Text style={styles.label}>Scadenza</Text>
                 <TextInput
                     style={styles.input}
                     placeholder="YYYY-MM-DD"
@@ -96,9 +116,9 @@ export default function NewInvoiceScreen() {
                     onChangeText={setDescription}
                 />
 
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSubmit}>
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
                     <FontAwesome5 name="save" size={16} color={Colors.white} />
-                    <Text style={styles.saveText}>Crea Fattura</Text>
+                    <Text style={styles.saveText}>Salva Modifiche</Text>
                 </TouchableOpacity>
             </ScrollView>
         </View>
@@ -152,3 +172,4 @@ const styles = StyleSheet.create({
     },
     saveText: { color: Colors.white, fontWeight: "600", fontSize: 15 },
 });
+
