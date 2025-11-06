@@ -24,4 +24,9 @@ export const Colors = {
     // ⚪ Bianco e overlay
     white: "#FFFFFF",
     overlay: "rgba(0, 0, 0, 0.1)",
+
+    // 🆕 Alias aggiuntivi per compatibilità con gli screen
+    textDark: "#111827",       // alias di text (principale)
+    textMedium: "#6B7280",     // alias di textMuted (secondario)
+    textLight: "#9CA3AF",      // più chiaro, utile per footer o hint
 };

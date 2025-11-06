@@ -1,53 +1,179 @@
-import { Colors } from "@constants/colors";
-import { useAuth } from "@context/AuthContext";
-import React, { useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+// src/screens/RegisterScreen.tsx
+import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { authApi } from '../api';
+import { Colors } from '../constants/colors';
 
-export default function RegisterScreen({ navigation }: any) {
-    const { setAuth } = useAuth();
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+export default function RegisterScreen() {
+    const navigation = useNavigation<any>();
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirm, setConfirm] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const handleRegister = async () => {
-        if (!email || !password) {
-            Alert.alert("Errore", "Inserisci email e password");
+        if (!name || !email || !password || !confirm) {
+            Alert.alert('Attenzione', 'Compila tutti i campi.');
             return;
         }
-        // TODO: chiamata reale al backend per creare utente
-        await setAuth("fake_jwt_token_after_register", email);
-        Alert.alert("Registrazione completata", "Benvenuto su FiscalFlow!");
-        navigation.replace("Dashboard");
+        if (password !== confirm) {
+            Alert.alert('Errore', 'Le password non coincidono.');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            await authApi.register({ name, email, password });
+            Alert.alert('Registrazione riuscita', 'Ora puoi accedere al tuo account.', [
+                {
+                    text: 'Accedi',
+                    onPress: () => navigation.replace('Login'),
+                },
+            ]);
+        } catch (err: any) {
+            Alert.alert('Errore di registrazione', err.message || 'Impossibile completare la registrazione');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Crea il tuo account</Text>
-            <Text style={styles.label}>Email</Text>
+        <View
+            style={{
+                flex: 1,
+                justifyContent: 'center',
+                padding: 24,
+                backgroundColor: Colors.bg,
+            }}
+        >
+            {/* Titolo e descrizione */}
+            <Text
+                style={{
+                    fontSize: 28,
+                    fontWeight: '700',
+                    color: Colors.primary,
+                    marginBottom: 16,
+                }}
+            >
+                Crea un account
+            </Text>
+            <Text
+                style={{
+                    fontSize: 16,
+                    color: Colors.textMuted,
+                    marginBottom: 32,
+                }}
+            >
+                Registrati su FiscalFlow per gestire in modo intelligente le tue finanze
+            </Text>
+
+            {/* Campi */}
             <TextInput
-                placeholder="name@email.com"
-                placeholderTextColor={Colors.textMuted}
+                placeholder="Nome completo"
+                placeholderTextColor="#999"
+                value={name}
+                onChangeText={setName}
+                style={{
+                    borderWidth: 1,
+                    borderColor: Colors.border,
+                    padding: 12,
+                    borderRadius: 8,
+                    color: Colors.text,
+                    marginBottom: 12,
+                    backgroundColor: Colors.surface,
+                }}
+            />
+            <TextInput
+                placeholder="Email"
+                placeholderTextColor="#999"
                 value={email}
                 onChangeText={setEmail}
+                keyboardType="email-address"
                 autoCapitalize="none"
-                style={styles.input}
+                style={{
+                    borderWidth: 1,
+                    borderColor: Colors.border,
+                    padding: 12,
+                    borderRadius: 8,
+                    color: Colors.text,
+                    marginBottom: 12,
+                    backgroundColor: Colors.surface,
+                }}
             />
-            <Text style={styles.label}>Password</Text>
-            <TextInput placeholder="••••••••" placeholderTextColor={Colors.textMuted} value={password} onChangeText={setPassword} secureTextEntry style={styles.input} />
-            <TouchableOpacity style={styles.primaryButton} onPress={handleRegister}>
-                <Text style={styles.primaryButtonText}>Registrati</Text>
+            <TextInput
+                placeholder="Password"
+                placeholderTextColor="#999"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                style={{
+                    borderWidth: 1,
+                    borderColor: Colors.border,
+                    padding: 12,
+                    borderRadius: 8,
+                    color: Colors.text,
+                    marginBottom: 12,
+                    backgroundColor: Colors.surface,
+                }}
+            />
+            <TextInput
+                placeholder="Conferma password"
+                placeholderTextColor="#999"
+                secureTextEntry
+                value={confirm}
+                onChangeText={setConfirm}
+                style={{
+                    borderWidth: 1,
+                    borderColor: Colors.border,
+                    padding: 12,
+                    borderRadius: 8,
+                    color: Colors.text,
+                    marginBottom: 20,
+                    backgroundColor: Colors.surface,
+                }}
+            />
+
+            {/* Pulsante */}
+            <TouchableOpacity
+                onPress={handleRegister}
+                disabled={loading}
+                style={{
+                    backgroundColor: Colors.primary,
+                    paddingVertical: 14,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                }}
+            >
+                {loading ? (
+                    <ActivityIndicator color={Colors.white} />
+                ) : (
+                    <Text style={{ color: Colors.white, fontWeight: '600', fontSize: 16 }}>
+                        Registrati
+                    </Text>
+                )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12, alignItems: "center" }}>
-                <Text style={{ color: Colors.textMuted }}>Hai già un account? <Text style={{ color: Colors.primary }}>Accedi</Text></Text>
+
+            {/* Link a login */}
+            <TouchableOpacity
+                onPress={() => navigation.replace('Login')}
+                style={{ marginTop: 24 }}
+            >
+                <Text style={{ color: Colors.textMuted, textAlign: 'center', fontSize: 14 }}>
+                    Hai già un account?{' '}
+                    <Text style={{ color: Colors.primary, fontWeight: '600' }}>
+                        Accedi
+                    </Text>
+                </Text>
             </TouchableOpacity>
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.bg, padding: 18, paddingTop: 48 },
-    title: { fontSize: 24, fontWeight: "800", color: Colors.primary, marginBottom: 18 },
-    label: { color: Colors.textMuted, marginBottom: 6, marginTop: 8 },
-    input: { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border, padding: 12, borderRadius: 12, color: Colors.text, marginBottom: 8 },
-    primaryButton: { backgroundColor: Colors.primary, padding: 14, borderRadius: 12, alignItems: "center", marginTop: 12 },
-    primaryButtonText: { color: Colors.white, fontWeight: "700" },
-});

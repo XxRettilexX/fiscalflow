@@ -3,21 +3,29 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
-import { FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { api } from "../api";
+import {
+    FlatList,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { invoiceApi } from "../api"; // ✅ usa il backend reale
 
 interface Invoice {
     id: number;
     number: string;
-    client: string;
-    amount: number;
+    customer_name: string;
+    total: number;
     date: string;
     due_date: string;
-    status: "pagata" | "in attesa" | "scaduta";
+    status: "paid" | "pending" | "overdue";
 }
 
 export default function InvoicesScreen() {
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -26,7 +34,12 @@ export default function InvoicesScreen() {
     useEffect(() => {
         const loadInvoices = async () => {
             try {
-                const data = await api.getInvoices();
+                setLoading(true);
+
+                // forza i tipi per evitare il "never"
+                const res: any = await invoiceApi.list();
+                const data: Invoice[] = Array.isArray(res) ? res : (res as any)?.data || [];
+
                 setInvoices(data);
             } catch (err) {
                 console.error("Errore caricamento fatture:", err);
@@ -37,28 +50,37 @@ export default function InvoicesScreen() {
         loadInvoices();
     }, []);
 
+
     const filteredInvoices = invoices.filter((inv) => {
         const matchSearch =
-            inv.client.toLowerCase().includes(search.toLowerCase()) ||
-            inv.number.includes(search);
+            inv.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
+            inv.number?.includes(search);
+
         const matchFilter =
             filter === "tutte" ||
-            (filter === "pagate" && inv.status === "pagata") ||
-            (filter === "attesa" && inv.status === "in attesa") ||
-            (filter === "scadute" && inv.status === "scaduta");
+            (filter === "pagate" && inv.status === "paid") ||
+            (filter === "attesa" && inv.status === "pending") ||
+            (filter === "scadute" && inv.status === "overdue");
+
         return matchSearch && matchFilter;
     });
 
     const renderStatusBadge = (status: Invoice["status"]) => {
         const color =
-            status === "pagata"
+            status === "paid"
                 ? Colors.accent
-                : status === "scaduta"
+                : status === "overdue"
                     ? Colors.danger
                     : Colors.primary;
+        const label =
+            status === "paid"
+                ? "PAGATA"
+                : status === "pending"
+                    ? "IN ATTESA"
+                    : "SCADUTA";
         return (
             <View style={[styles.badge, { backgroundColor: color + "22", borderColor: color }]}>
-                <Text style={[styles.badgeText, { color }]}>{status.toUpperCase()}</Text>
+                <Text style={[styles.badgeText, { color }]}>{label}</Text>
             </View>
         );
     };
@@ -70,27 +92,29 @@ export default function InvoicesScreen() {
                 {renderStatusBadge(item.status)}
             </View>
 
-            <Text style={styles.cardClient}>{item.client}</Text>
+            <Text style={styles.cardClient}>{item.customer_name}</Text>
 
             <View style={styles.cardRow}>
                 <Text style={styles.cardLabel}>Importo:</Text>
-                <Text style={styles.cardValue}>€ {item.amount.toFixed(2)}</Text>
+                <Text style={styles.cardValue}>€ {item.total?.toFixed(2)}</Text>
             </View>
             <View style={styles.cardRow}>
                 <Text style={styles.cardLabel}>Emissione:</Text>
-                <Text style={styles.cardValue}>{item.date}</Text>
+                <Text style={styles.cardValue}>
+                    {new Date(item.date).toLocaleDateString("it-IT")}
+                </Text>
             </View>
             <View style={styles.cardRow}>
                 <Text style={styles.cardLabel}>Scadenza:</Text>
-                <Text style={styles.cardValue}>{item.due_date}</Text>
+                <Text style={styles.cardValue}>
+                    {new Date(item.due_date).toLocaleDateString("it-IT")}
+                </Text>
             </View>
 
             <View style={styles.actions}>
                 <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: Colors.primary }]}
-                    onPress={() => (navigation as any).navigate("InvoiceDetail", { id: item.id })}
-
-
+                    onPress={() => navigation.navigate("InvoiceDetail", { id: item.id })}
                 >
                     <FontAwesome5 name="file-alt" size={14} color={Colors.white} />
                     <Text style={styles.actionText}>Visualizza</Text>
@@ -98,24 +122,25 @@ export default function InvoicesScreen() {
 
                 <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: Colors.accent }]}
-                    onPress={() => (navigation as any).navigate("EditInvoice", { id: item.id })}
-
-
+                    onPress={() => (navigation as any).navigate("EditInvoice", { id: item.id })}  // ✅ Passaggio corretto dell’ID
                 >
                     <FontAwesome5 name="edit" size={14} color={Colors.white} />
                     <Text style={styles.actionText}>Modifica</Text>
                 </TouchableOpacity>
+
             </View>
         </View>
     );
 
     return (
         <View style={styles.container}>
+            {/* HEADER */}
             <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
                 <Text style={styles.headerTitle}>Le mie Fatture</Text>
                 <Text style={styles.headerSubtitle}>Gestisci le tue operazioni contabili</Text>
             </LinearGradient>
 
+            {/* FILTRI E RICERCA */}
             <View style={styles.searchSection}>
                 <TextInput
                     placeholder="Cerca per cliente o numero"
@@ -125,7 +150,11 @@ export default function InvoicesScreen() {
                     style={styles.searchInput}
                 />
 
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.filterScroll}
+                >
                     {["tutte", "pagate", "attesa", "scadute"].map((f) => (
                         <TouchableOpacity
                             key={f}
@@ -148,8 +177,15 @@ export default function InvoicesScreen() {
                 </ScrollView>
             </View>
 
+            {/* LISTA FATTURE */}
             {loading ? (
-                <Text style={{ textAlign: "center", marginTop: 30 }}>Caricamento...</Text>
+                <Text style={{ textAlign: "center", marginTop: 30, color: Colors.textMuted }}>
+                    Caricamento...
+                </Text>
+            ) : filteredInvoices.length === 0 ? (
+                <Text style={{ textAlign: "center", marginTop: 30, color: Colors.textMuted }}>
+                    Nessuna fattura trovata.
+                </Text>
             ) : (
                 <FlatList
                     data={filteredInvoices}
@@ -160,9 +196,10 @@ export default function InvoicesScreen() {
                 />
             )}
 
+            {/* FLOATING BUTTON */}
             <TouchableOpacity
                 style={styles.fab}
-                onPress={() => navigation.navigate("NewInvoice" as never)}
+                onPress={() => navigation.navigate("NewInvoice")}
             >
                 <FontAwesome5 name="plus" size={22} color={Colors.white} />
             </TouchableOpacity>

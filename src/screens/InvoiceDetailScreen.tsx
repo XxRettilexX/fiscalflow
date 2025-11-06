@@ -1,91 +1,130 @@
-import { Colors } from "@constants/colors";
-import { FontAwesome5 } from "@expo/vector-icons";
-import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { api } from "../api";
-import { RootStackParamList } from "../navigation/AppNavigator";
-
-type InvoiceDetailRoute = RouteProp<RootStackParamList, "InvoiceDetail">;
-type InvoiceDetailNav = NativeStackNavigationProp<RootStackParamList, "InvoiceDetail">;
+// src/screens/InvoiceDetailScreen.tsx
+import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { invoiceApi } from '../api';
+import { Colors } from '../constants/colors';
 
 export default function InvoiceDetailScreen() {
-    const route = useRoute<InvoiceDetailRoute>();
-    const navigation = useNavigation<InvoiceDetailNav>();
+    const route = useRoute<any>();
+    const navigation = useNavigation<any>();
     const { id } = route.params;
-
     const [invoice, setInvoice] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
+    const fetchInvoice = async () => {
+        try {
+            setLoading(true);
+            const data = await invoiceApi.get(id);
+            setInvoice(data);
+        } catch (err: any) {
+            console.error('Errore caricamento fattura:', err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const loadInvoice = async () => {
-            try {
-                const data = await api.getInvoice(id);
-                setInvoice(data);
-            } catch (err) {
-                Alert.alert("Errore", "Impossibile caricare la fattura.");
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadInvoice();
+        fetchInvoice();
     }, [id]);
 
-    if (loading) return <Text style={{ textAlign: "center", marginTop: 40 }}>Caricamento...</Text>;
-    if (!invoice) return <Text style={{ textAlign: "center", marginTop: 40 }}>Fattura non trovata.</Text>;
+    const handleDelete = async () => {
+        Alert.alert('Conferma eliminazione', 'Vuoi davvero eliminare questa fattura?', [
+            { text: 'Annulla', style: 'cancel' },
+            {
+                text: 'Elimina',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await invoiceApi.delete(id);
+                        Alert.alert('Eliminata', 'La fattura è stata eliminata');
+                        navigation.goBack();
+                    } catch (err: any) {
+                        Alert.alert('Errore', err.message || 'Impossibile eliminare la fattura');
+                    }
+                },
+            },
+        ]);
+    };
+
+    if (loading)
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg }}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+        );
+
+    if (!invoice)
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg }}>
+                <Text style={{ color: Colors.textMuted }}>Fattura non trovata</Text>
+            </View>
+        );
 
     return (
-        <View style={styles.container}>
-            <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <FontAwesome5 name="arrow-left" size={18} color={Colors.white} />
+        <ScrollView style={{ flex: 1, backgroundColor: Colors.bg, padding: 16 }}>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: Colors.primary, marginBottom: 8 }}>
+                {invoice.number}
+            </Text>
+            <Text style={{ color: Colors.textMuted, marginBottom: 4 }}>
+                Cliente: {invoice.customer_name}
+            </Text>
+            <Text style={{ color: Colors.textMuted, marginBottom: 4 }}>Data: {invoice.date}</Text>
+            <Text style={{ color: Colors.textMuted, marginBottom: 8 }}>Totale: € {invoice.total}</Text>
+
+            <Text style={{ color: Colors.primaryDark, fontWeight: '600', marginBottom: 8 }}>
+                Dettagli articoli:
+            </Text>
+            {invoice.items && invoice.items.length > 0 ? (
+                invoice.items.map((item: any, index: number) => (
+                    <View
+                        key={index}
+                        style={{
+                            backgroundColor: Colors.surface,
+                            borderRadius: 8,
+                            padding: 12,
+                            marginBottom: 8,
+                            borderWidth: 1,
+                            borderColor: Colors.border,
+                        }}
+                    >
+                        <Text style={{ fontWeight: '600', color: Colors.text }}>{item.description}</Text>
+                        <Text style={{ color: Colors.textMuted }}>
+                            {item.qty} × € {item.price.toFixed(2)}
+                        </Text>
+                    </View>
+                ))
+            ) : (
+                <Text style={{ color: Colors.textMuted }}>Nessuna voce registrata</Text>
+            )}
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('EditInvoice', { id })}
+                    style={{
+                        backgroundColor: Colors.primaryLight,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        flex: 0.48,
+                        alignItems: 'center',
+                    }}
+                >
+                    <Text style={{ color: Colors.white, fontWeight: '600' }}>Modifica</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Dettaglio Fattura</Text>
-            </LinearGradient>
 
-            <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.title}>Fattura n° {invoice.number}</Text>
-
-                <Text style={styles.label}>Cliente:</Text>
-                <Text style={styles.value}>{invoice.client}</Text>
-
-                <Text style={styles.label}>Importo:</Text>
-                <Text style={styles.value}>€ {invoice.amount}</Text>
-
-                <Text style={styles.label}>Data Emissione:</Text>
-                <Text style={styles.value}>{invoice.date}</Text>
-
-                <Text style={styles.label}>Data Scadenza:</Text>
-                <Text style={styles.value}>{invoice.due_date}</Text>
-
-                <Text style={styles.label}>Stato:</Text>
-                <Text style={[styles.value, { color: Colors.primary }]}>{invoice.status.toUpperCase()}</Text>
-
-                <Text style={styles.label}>Descrizione:</Text>
-                <Text style={styles.value}>{invoice.description}</Text>
-            </ScrollView>
-        </View>
+                <TouchableOpacity
+                    onPress={handleDelete}
+                    style={{
+                        backgroundColor: Colors.danger,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        flex: 0.48,
+                        alignItems: 'center',
+                    }}
+                >
+                    <Text style={{ color: Colors.white, fontWeight: '600' }}>Elimina</Text>
+                </TouchableOpacity>
+            </View>
+        </ScrollView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.bg },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingTop: 60,
-        paddingBottom: 20,
-        paddingHorizontal: 20,
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
-        gap: 12,
-    },
-    headerTitle: { color: Colors.white, fontSize: 20, fontWeight: "700" },
-    content: { padding: 20 },
-    title: { fontSize: 22, fontWeight: "800", color: Colors.text, marginBottom: 10 },
-    label: { color: Colors.textMuted, marginTop: 14, fontSize: 13 },
-    value: { fontSize: 15, color: Colors.text, fontWeight: "600", marginTop: 4 },
-});

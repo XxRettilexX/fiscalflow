@@ -1,55 +1,102 @@
+import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { authApi } from "../api";
 
-type AuthState = {
-    isLoading: boolean;
+interface AuthContextType {
+    user: any;
     token: string | null;
-    email: string | null;
-    setAuth: (t: string | null, e: string | null) => Promise<void>;
+    loading: boolean;
+    login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
-};
+    biometricLogin: () => Promise<boolean>;
+}
 
-const AuthContext = createContext<AuthState>({
-    isLoading: true,
-    token: null,
-    email: null,
-    setAuth: async () => { },
-    logout: async () => { },
-});
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [isLoading, setLoading] = useState(true);
+    const [user, setUser] = useState<any>(null);
     const [token, setToken] = useState<string | null>(null);
-    const [email, setEmail] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
 
+    // 🔹 Recupera il token salvato all'avvio (se presente)
     useEffect(() => {
-        (async () => {
-            const t = await SecureStore.getItemAsync("fiscalflow_token");
-            const e = await SecureStore.getItemAsync("fiscalflow_email");
-            setToken(t ?? null);
-            setEmail(e ?? null);
+        const loadToken = async () => {
+            const savedToken = await SecureStore.getItemAsync("jwt_token");
+            console.log("🔑 Token salvato trovato:", savedToken);
+
+            if (savedToken) {
+                setToken(savedToken);
+                try {
+                    const u = await authApi.me();
+                    console.log("✅ Dati utente caricati da /api/me:", u);
+                    setUser(u);
+                } catch (err) {
+                    console.log("❌ Errore caricamento /api/me:", err);
+                    await SecureStore.deleteItemAsync("jwt_token");
+                    setToken(null);
+                }
+            } else {
+                console.log("⚠️ Nessun token trovato in SecureStore");
+            }
+
             setLoading(false);
-        })();
+        };
+        loadToken();
     }, []);
 
-    const setAuth = async (t: string | null, e: string | null) => {
-        if (t) await SecureStore.setItemAsync("fiscalflow_token", t);
-        else await SecureStore.deleteItemAsync("fiscalflow_token");
-        if (e) await SecureStore.setItemAsync("fiscalflow_email", e);
-        else await SecureStore.deleteItemAsync("fiscalflow_email");
-        setToken(t);
-        setEmail(e);
+    const login = async (email: string, password: string) => {
+        console.log("📩 Tentativo di login con:", email);
+        const data = await authApi.login(email, password);
+        console.log("✅ Risposta login:", data);
+
+        const jwt = data.token;
+        await SecureStore.setItemAsync("jwt_token", jwt);
+        setToken(jwt);
+
+        const u = await authApi.me();
+        console.log("✅ Utente dopo login:", u);
+        setUser(u);
     };
 
+
+    // 🔹 Login biometrico (FaceID / impronta)
+    const biometricLogin = async () => {
+        const savedToken = await SecureStore.getItemAsync("jwt_token");
+        if (!savedToken) return false;
+
+        const compatible = await LocalAuthentication.hasHardwareAsync();
+        if (!compatible) return false;
+
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        if (!enrolled) return false;
+
+        const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: "Accedi a FiscalFlow",
+        });
+
+        if (result.success) {
+            setToken(savedToken);
+            try {
+                const u = await authApi.me(); // ✅ carica l'utente
+                setUser(u);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+        return false;
+    };
+
+    // 🔹 Logout manuale
     const logout = async () => {
-        await SecureStore.deleteItemAsync("fiscalflow_token");
-        await SecureStore.deleteItemAsync("fiscalflow_email");
         setToken(null);
-        setEmail(null);
+        setUser(null);
+        await SecureStore.deleteItemAsync("jwt_token");
     };
 
     return (
-        <AuthContext.Provider value={{ isLoading, token, email, setAuth, logout }}>
+        <AuthContext.Provider value={{ user, token, loading, login, logout, biometricLogin }}>
             {children}
         </AuthContext.Provider>
     );
