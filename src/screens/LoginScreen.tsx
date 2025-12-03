@@ -7,12 +7,11 @@ import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
 
@@ -23,6 +22,7 @@ export default function LoginScreen() {
     const [password, setPassword] = useState("");
     const [biometricAvailable, setBiometricAvailable] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [serverError, setServerError] = useState<string | null>(null);
 
     useEffect(() => {
         const checkBiometric = async () => {
@@ -36,41 +36,35 @@ export default function LoginScreen() {
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert("Errore", "Inserisci email e password");
+            setServerError("Inserisci email e password.");
             return;
         }
 
+        setServerError(null);
         try {
             setIsLoading(true);
             await login(email, password);
-            Alert.alert("✅ Accesso riuscito", "Benvenuto in FiscalFlow!");
-            // Correzione: naviga a 'MainApp' che contiene i tab
-            navigation.reset({
-                index: 0,
-                routes: [{ name: "MainApp" as never }],
-            });
+            // accesso riuscito: AppNavigator reagisce al cambio di stato
         } catch (err: any) {
-            Alert.alert("Errore", err.message || "Accesso non riuscito");
+            const msg = err?.message || "Accesso non riuscito. Verifica le credenziali o riprova.";
+            setServerError(msg);
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleBiometricLogin = async () => {
+        setServerError(null);
         try {
+            setIsLoading(true);
             const success = await loginWithBiometrics();
             if (!success) {
-                Alert.alert("Accesso Fallito", "La biometria non è stata riconosciuta.");
-            } else {
-                Alert.alert("✅ Accesso biometrico riuscito", "Bentornato!");
-                // Correzione: naviga a 'MainApp' che contiene i tab
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: "MainApp" as never }],
-                });
+                setServerError("Accesso biometrico non riconosciuto.");
             }
-        } catch (error) {
-            Alert.alert("Errore Biometrico", error.message);
+        } catch (error: any) {
+            setServerError(error?.message || "Errore durante l'accesso biometrico.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -106,6 +100,8 @@ export default function LoginScreen() {
                         <Text style={styles.loginText}>Accedi</Text>
                     )}
                 </TouchableOpacity>
+
+                {serverError ? <Text style={styles.errorText}>{serverError}</Text> : null}
 
                 {biometricAvailable && (
                     <TouchableOpacity onPress={handleBiometricLogin} style={styles.biometricBtn}>
@@ -170,5 +166,11 @@ const styles = StyleSheet.create({
         marginTop: 24,
         fontSize: 14,
         textDecorationLine: "underline",
+    },
+    errorText: {
+        color: Colors.danger,
+        textAlign: "center",
+        marginTop: 12,
+        fontSize: 14,
     },
 });

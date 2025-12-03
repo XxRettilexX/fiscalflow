@@ -84,7 +84,7 @@ export const authApi = {
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
             },
-            body: new URLSearchParams({ refreshToken }).toString(),
+            body: new URLSearchParams({ refresh_token: refreshToken }).toString(),
         });
     },
 };

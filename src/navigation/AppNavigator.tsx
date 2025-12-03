@@ -3,6 +3,8 @@ import { NavigationContainer } from "@react-navigation/native";
 import { NativeStackNavigationOptions, createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+// Icone
+import { Ionicons } from "@expo/vector-icons";
 // Screens
 import AddExpenseScreen from "@screens/AddExpenseScreen";
 import DashboardScreen from "@screens/DashboardScreen";
@@ -24,14 +26,6 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Auth = createNativeStackNavigator<AuthStackParamList>();
 
-// Placeholder per le icone della Tab Bar
-const TabBarIcon = ({ name, focused }: { name: string; focused: boolean }) => {
-    // In un'app reale, useresti una libreria come Ionicons
-    const color = focused ? Colors.primary : Colors.text;
-    const label = name.charAt(0).toUpperCase() + name.slice(1);
-    return <Text style={{ color, fontSize: 12 }}>{label}</Text>;
-};
-
 // --- Aree dell'app ---
 
 const tabScreenOptions: BottomTabNavigationOptions = {
@@ -52,7 +46,10 @@ function MainAppTabs() {
                 name="Home"
                 component={DashboardScreen}
                 options={{
-                    tabBarIcon: ({ focused }) => <TabBarIcon name="home" focused={focused} />,
+                    tabBarLabel: "Home",
+                    tabBarIcon: ({ focused, color, size }) => (
+                        <Ionicons name={focused ? "home" : "home-outline"} size={size} color={color} />
+                    ),
                 }}
             />
             <Tab.Screen
@@ -60,7 +57,9 @@ function MainAppTabs() {
                 component={StatisticsScreen}
                 options={{
                     tabBarLabel: "Statistiche",
-                    tabBarIcon: ({ focused }) => <TabBarIcon name="stats" focused={focused} />,
+                    tabBarIcon: ({ focused, color, size }) => (
+                        <Ionicons name={focused ? "stats-chart" : "stats-chart-outline"} size={size} color={color} />
+                    ),
                 }}
             />
             {/* Pulsante centrale "Scan" */}
@@ -81,7 +80,9 @@ function MainAppTabs() {
                 component={ProfileScreen}
                 options={{
                     tabBarLabel: "Profilo",
-                    tabBarIcon: ({ focused }) => <TabBarIcon name="user" focused={focused} />,
+                    tabBarIcon: ({ focused, color, size }) => (
+                        <Ionicons name={focused ? "person" : "person-outline"} size={size} color={color} />
+                    ),
                 }}
             />
         </Tab.Navigator>

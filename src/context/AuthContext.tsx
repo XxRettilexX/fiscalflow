@@ -71,30 +71,84 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         bootstrapAsync();
     }, []);
 
-    const handleLoginSuccess = async (accessToken: string, refreshToken?: string) => {
+    const handleLoginSuccess = async (accessToken: string | undefined, refreshToken?: string | undefined) => {
+        // Validate tokens
+        if (!accessToken || typeof accessToken !== "string") {
+            console.error("handleLoginSuccess: invalid accessToken:", accessToken);
+            throw new Error("Access token non valido ricevuto dal server.");
+        }
+
         setToken(accessToken);
         await SecureStore.setItemAsync(TOKEN_KEYS.ACCESS, accessToken);
-        if (refreshToken) {
-            await SecureStore.setItemAsync(TOKEN_KEYS.REFRESH, refreshToken);
+
+        if (refreshToken !== undefined) {
+            if (refreshToken === null || typeof refreshToken !== "string" || refreshToken.length === 0) {
+                console.warn("handleLoginSuccess: refresh token is invalid, ignoring:", refreshToken);
+            } else {
+                await SecureStore.setItemAsync(TOKEN_KEYS.REFRESH, refreshToken);
+            }
         }
+
         // Fetch user data
         const userData = await authApi.me();
+
+        // Se la risposta è vuota o mancano campi essenziali, non impostare un 'user' invalido
+        if (!userData || typeof userData !== "object" || (!("id" in userData) && !("name" in userData) && !("email" in userData))) {
+            console.warn("authApi.me() returned invalid user data:", userData);
+            setUser(null);
+            return;
+        }
+
         setUser(userData);
     };
 
     const handleRefreshToken = async (refreshToken: string) => {
         try {
-            const { token: accessToken, refresh_token: newRefreshToken } = await authApi.refresh(refreshToken);
+            if (!refreshToken || typeof refreshToken !== "string") {
+                throw new Error("Refresh token mancante o non valido.");
+            }
+            const response = await authApi.refresh(refreshToken);
+            const accessToken = (response && (response as any).token) || (response && (response as any).accessToken) || undefined;
+            const newRefreshToken = (response && (response as any).refresh_token) || (response && (response as any).refreshToken) || undefined;
+
+            if (!accessToken) {
+                // Risposta non valida dal server: log e logout silenzioso
+                console.warn("handleRefreshToken: refresh response missing access token:", response);
+                await logout();
+                setLoading(false);
+                return;
+            }
+
             await handleLoginSuccess(accessToken, newRefreshToken);
         } catch (error) {
             console.error("Refresh token failed, logging out.", error);
-            await logout();
+            // Logout sicuro senza rilanciare l'errore per non interrompere il bootstrap
+            try {
+                await logout();
+            } catch (e) {
+                console.error("Error during logout after failed refresh:", e);
+            }
+            setLoading(false);
+            return;
         }
     };
 
     const login = async (email: string, password: string) => {
-        const { token: accessToken, refresh_token: refreshToken } = await authApi.login(email, password);
-        await handleLoginSuccess(accessToken, refreshToken);
+        try {
+            const response = await authApi.login(email, password);
+            const accessToken = (response && (response as any).token) || undefined;
+            const refreshToken = (response && (response as any).refresh_token) || undefined;
+
+            if (!accessToken) {
+                console.error("login: missing access token in response:", response);
+                throw new Error("Access token non ricevuto dal server.");
+            }
+
+            await handleLoginSuccess(accessToken, refreshToken);
+        } catch (err) {
+            console.error("login failed:", err);
+            throw err;
+        }
     };
 
     const loginWithBiometrics = async (): Promise<boolean> => {

@@ -119,7 +119,7 @@ export default function ProfileScreen() {
         </Modal>
     );
 
-    if (!user) {
+    if (!user || (typeof user === "object" && !user.name && !user.email)) {
         return (
             <View style={styles.container}>
                 <Header title="Profilo" />
@@ -128,16 +128,19 @@ export default function ProfileScreen() {
         );
     }
 
+    const displayName = user?.name ?? user?.email ?? "Utente";
+    const avatarInitial = (displayName && displayName.length > 0) ? displayName.charAt(0).toUpperCase() : "?";
+
     return (
         <View style={styles.container}>
             <Header title="Profilo" />
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.profileHeader}>
                     <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>{user?.name.charAt(0).toUpperCase()}</Text>
+                        <Text style={styles.avatarText}>{avatarInitial}</Text>
                     </View>
-                    <Text style={styles.profileName}>{user?.name}</Text>
-                    <Text style={styles.profileEmail}>{user?.email}</Text>
+                    <Text style={styles.profileName}>{displayName}</Text>
+                    <Text style={styles.profileEmail}>{user?.email ?? ""}</Text>
                 </View>
 
                 <View style={styles.menuContainer}>
