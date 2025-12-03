@@ -4,7 +4,6 @@ import { NativeStackNavigationOptions, createNativeStackNavigator } from "@react
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 // Screens
-import AboutScreen from "@screens/AboutScreen"; // Importa la nuova schermata
 import AddExpenseScreen from "@screens/AddExpenseScreen";
 import DashboardScreen from "@screens/DashboardScreen";
 import LoginScreen from "@screens/LoginScreen";
@@ -12,7 +11,8 @@ import ProfileScreen from "@screens/ProfileScreen";
 import RegisterScreen from "@screens/RegisterScreen";
 import SplashScreen from "@screens/SplashScreen";
 import StatisticsScreen from "@screens/StatisticsScreen";
-import SupportScreen from "@screens/SupportScreen"; // Importa la nuova schermata
+import AboutScreen from "../screens/AboutScreen"; // Importa la nuova schermata
+import SupportScreen from "../screens/SupportScreen"; // Importa la nuova schermata
 // Hooks
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";

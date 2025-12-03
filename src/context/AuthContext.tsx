@@ -84,7 +84,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const handleRefreshToken = async (refreshToken: string) => {
         try {
-            const { accessToken, refreshToken: newRefreshToken } = await authApi.refresh(refreshToken);
+            const { token: accessToken, refresh_token: newRefreshToken } = await authApi.refresh(refreshToken);
             await handleLoginSuccess(accessToken, newRefreshToken);
         } catch (error) {
             console.error("Refresh token failed, logging out.", error);
@@ -93,7 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const login = async (email: string, password: string) => {
-        const { accessToken, refreshToken } = await authApi.login(email, password);
+        const { token: accessToken, refresh_token: refreshToken } = await authApi.login(email, password);
         await handleLoginSuccess(accessToken, refreshToken);
     };
 

@@ -50,9 +50,12 @@ export async function apiFetch<T>(
 export const authApi = {
     async login(email: string, password: string) {
         console.log("📩 Tentativo login:", email);
-        return apiFetch<{ accessToken: string; refreshToken: string }>("/login", {
+        return apiFetch<{ token: string; refresh_token: string }>("/login", {
             method: "POST",
-            body: JSON.stringify({ email, password }), // ✅ JSON.stringify!
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({ email, password }).toString(),
         });
     },
 
@@ -60,7 +63,10 @@ export const authApi = {
         console.log("🆕 Registrazione utente:", email);
         return apiFetch<{ message: string }>("/register", {
             method: "POST",
-            body: JSON.stringify({ name, email, password }), // ✅ JSON.stringify!
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({ name, email, password }).toString(),
         });
     },
 
@@ -73,9 +79,12 @@ export const authApi = {
 
     async refresh(refreshToken: string) {
         console.log("🔄 Tentativo di refresh token");
-        return apiFetch<{ accessToken: string; refreshToken: string }>("/refresh", {
+        return apiFetch<{ token: string; refresh_token: string }>("/refresh", {
             method: "POST",
-            body: JSON.stringify({ refreshToken }),
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({ refreshToken }).toString(),
         });
     },
 };
@@ -98,14 +107,22 @@ export const expensesApi = {
     },
 
     async create(payload: { amount: number; category: string; date: string; notes?: string; }) {
+        const formData = {
+            amount: String(payload.amount),
+            category: payload.category,
+            date: payload.date,
+            ...(payload.notes && { notes: payload.notes }),
+        };
+
         return apiFetch<any>("/invoices", {
             method: "POST",
-            body: JSON.stringify(payload),
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams(formData).toString(),
         });
     },
 };
-
-// ... (il resto del codice, come alertApi, può rimanere se serve)
 
 //
 // 🔔 AVVISI

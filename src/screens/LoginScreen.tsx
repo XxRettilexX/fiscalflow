@@ -6,13 +6,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
 import {
+    ActivityIndicator,
     Alert,
-    Button,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
 
@@ -44,9 +44,10 @@ export default function LoginScreen() {
             setIsLoading(true);
             await login(email, password);
             Alert.alert("✅ Accesso riuscito", "Benvenuto in FiscalFlow!");
+            // Correzione: naviga a 'MainApp' che contiene i tab
             navigation.reset({
                 index: 0,
-                routes: [{ name: "Dashboard" as never }],
+                routes: [{ name: "MainApp" as never }],
             });
         } catch (err: any) {
             Alert.alert("Errore", err.message || "Accesso non riuscito");
@@ -62,9 +63,10 @@ export default function LoginScreen() {
                 Alert.alert("Accesso Fallito", "La biometria non è stata riconosciuta.");
             } else {
                 Alert.alert("✅ Accesso biometrico riuscito", "Bentornato!");
+                // Correzione: naviga a 'MainApp' che contiene i tab
                 navigation.reset({
                     index: 0,
-                    routes: [{ name: "Dashboard" as never }],
+                    routes: [{ name: "MainApp" as never }],
                 });
             }
         } catch (error) {
@@ -97,12 +99,18 @@ export default function LoginScreen() {
                     onChangeText={setPassword}
                 />
 
-                <Button title="Accedi" onPress={handleLogin} color={Colors.primary} />
+                <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={isLoading}>
+                    {isLoading ? (
+                        <ActivityIndicator color={Colors.white} />
+                    ) : (
+                        <Text style={styles.loginText}>Accedi</Text>
+                    )}
+                </TouchableOpacity>
 
                 {biometricAvailable && (
-                    <TouchableOpacity onPress={handleBiometricLogin} style={{ marginTop: 20 }}>
+                    <TouchableOpacity onPress={handleBiometricLogin} style={styles.biometricBtn}>
                         <FontAwesome5 name="fingerprint" size={22} color={Colors.white} />
-                        <Text style={styles.biometricText}>Accedi con impronta digitale</Text>
+                        <Text style={styles.biometricText}>Accedi con biometria</Text>
                     </TouchableOpacity>
                 )}
 
@@ -117,42 +125,50 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: "center" },
     inner: { padding: 24 },
-    title: { color: Colors.white, fontSize: 28, fontWeight: "800", textAlign: "center" },
+    title: {
+        color: Colors.white,
+        fontSize: 32,
+        fontWeight: "800",
+        textAlign: "center",
+        marginBottom: 8,
+    },
     subtitle: {
-        color: "#E5EAF1",
+        color: Colors.white,
         textAlign: "center",
         marginBottom: 40,
-        fontSize: 14,
+        fontSize: 16,
+        opacity: 0.9,
     },
     input: {
-        backgroundColor: Colors.white,
+        backgroundColor: "rgba(255, 255, 255, 0.2)",
         borderRadius: 10,
-        padding: 12,
+        paddingVertical: 15,
+        paddingHorizontal: 20,
         marginBottom: 12,
-        fontSize: 14,
-        color: Colors.text,
+        fontSize: 16,
+        color: Colors.white,
     },
     loginBtn: {
         backgroundColor: Colors.accent,
-        paddingVertical: 12,
+        paddingVertical: 15,
         borderRadius: 10,
         alignItems: "center",
-        marginTop: 4,
+        marginTop: 10,
     },
-    loginText: { color: Colors.white, fontWeight: "700" },
+    loginText: { color: Colors.white, fontWeight: "700", fontSize: 16 },
     biometricBtn: {
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        marginTop: 16,
-        gap: 8,
+        marginTop: 24,
+        gap: 12,
     },
-    biometricText: { color: Colors.white, fontSize: 14 },
+    biometricText: { color: Colors.white, fontSize: 14, fontWeight: "500" },
     registerText: {
         color: Colors.white,
         textAlign: "center",
         marginTop: 24,
-        fontSize: 13,
+        fontSize: 14,
         textDecorationLine: "underline",
     },
 });

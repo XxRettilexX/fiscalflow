@@ -1,6 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
 import { expensesApi } from "../api";
 import { Header } from "../components/Header";
 import { Colors } from "../constants/colors";
@@ -43,7 +43,11 @@ export default function StatisticsScreen() {
         }
     }, []);
 
-    useFocusEffect(fetchData);
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [fetchData])
+    );
 
     return (
         <View style={styles.container}>

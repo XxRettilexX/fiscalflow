@@ -1,4 +1,5 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as SecureStore from "expo-secure-store";
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
@@ -6,6 +7,7 @@ import { Header } from "../components/Header";
 import { Colors } from "../constants/colors";
 import { fonts } from "../constants/fonts";
 import { useAuth } from "../context/AuthContext";
+import { RootStackParamList } from "../navigation/types";
 
 const SETTINGS_KEYS = {
     AUTO_LOGIN: "settings_auto_login",
@@ -14,7 +16,7 @@ const SETTINGS_KEYS = {
 
 export default function ProfileScreen() {
     const { logout, user } = useAuth();
-    const navigation = useNavigation();
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
 
     // --- State per le Impostazioni ---
@@ -38,7 +40,11 @@ export default function ProfileScreen() {
         }
     }, []);
 
-    useFocusEffect(loadSettings);
+    useFocusEffect(
+        useCallback(() => {
+            loadSettings();
+        }, [loadSettings])
+    );
 
     const handleAutoLoginToggle = async (value: boolean) => {
         setIsAutoLoginEnabled(value);
