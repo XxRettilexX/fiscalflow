@@ -3,103 +3,138 @@ import * as SecureStore from "expo-secure-store";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { authApi } from "../api";
 
-interface AuthContextType {
-    user: any;
-    token: string | null;
-    loading: boolean;
-    login: (email: string, password: string) => Promise<void>;
-    logout: () => Promise<void>;
-    biometricLogin: () => Promise<boolean>;
+const TOKEN_KEYS = {
+    ACCESS: "jwt_token",
+    REFRESH: "refresh_token",
+};
+
+const SETTINGS_KEYS = {
+    AUTO_LOGIN: "settings_auto_login",
+    BIOMETRIC_LOGIN: "settings_biometric_login",
+};
+
+interface User {
+    id: number;
+    name: string;
+    email: string;
 }
 
-const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+interface AuthContextType {
+    token: string | null;
+    user: User | null;
+    loading: boolean;
+    login: (email: string, password: string) => Promise<void>;
+    loginWithBiometrics: () => Promise<boolean>;
+    logout: () => void;
+}
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<any>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function useAuth() {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error("useAuth must be used within an AuthProvider");
+    }
+    return context;
+}
+
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [token, setToken] = useState<string | null>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // 🔹 Recupera il token salvato all'avvio (se presente)
     useEffect(() => {
-        const loadToken = async () => {
-            const savedToken = await SecureStore.getItemAsync("jwt_token");
-            console.log("🔑 Token salvato trovato:", savedToken);
+        const bootstrapAsync = async () => {
+            setLoading(true);
+            try {
+                const autoLoginEnabled = (await SecureStore.getItemAsync(SETTINGS_KEYS.AUTO_LOGIN)) === "true";
+                const refreshToken = await SecureStore.getItemAsync(TOKEN_KEYS.REFRESH);
 
-            if (savedToken) {
-                setToken(savedToken);
-                try {
-                    const u = await authApi.me();
-                    console.log("✅ Dati utente caricati da /api/me:", u);
-                    setUser(u);
-                } catch (err) {
-                    console.log("❌ Errore caricamento /api/me:", err);
-                    await SecureStore.deleteItemAsync("jwt_token");
-                    setToken(null);
+                if (autoLoginEnabled && refreshToken) {
+                    const biometricEnabled = (await SecureStore.getItemAsync(SETTINGS_KEYS.BIOMETRIC_LOGIN)) === "true";
+                    if (biometricEnabled) {
+                        // L'accesso biometrico verrà richiesto dalla schermata di Login
+                        // Qui ci limitiamo a non fare nulla, lasciando che l'utente scelga
+                        setLoading(false);
+                        return;
+                    }
+                    // Procede con il refresh automatico
+                    await handleRefreshToken(refreshToken);
                 }
-            } else {
-                console.log("⚠️ Nessun token trovato in SecureStore");
+            } catch (e) {
+                console.error("Bootstrap error:", e);
+            } finally {
+                setLoading(false);
             }
-
-            setLoading(false);
         };
-        loadToken();
+
+        bootstrapAsync();
     }, []);
 
-    const login = async (email: string, password: string) => {
-        console.log("📩 Tentativo di login con:", email);
-        const data = await authApi.login(email, password);
-        console.log("✅ Risposta login:", data);
-
-        const jwt = data.token;
-        await SecureStore.setItemAsync("jwt_token", jwt);
-        setToken(jwt);
-
-        const u = await authApi.me();
-        console.log("✅ Utente dopo login:", u);
-        setUser(u);
+    const handleLoginSuccess = async (accessToken: string, refreshToken?: string) => {
+        setToken(accessToken);
+        await SecureStore.setItemAsync(TOKEN_KEYS.ACCESS, accessToken);
+        if (refreshToken) {
+            await SecureStore.setItemAsync(TOKEN_KEYS.REFRESH, refreshToken);
+        }
+        // Fetch user data
+        const userData = await authApi.me();
+        setUser(userData);
     };
 
+    const handleRefreshToken = async (refreshToken: string) => {
+        try {
+            const { accessToken, refreshToken: newRefreshToken } = await authApi.refresh(refreshToken);
+            await handleLoginSuccess(accessToken, newRefreshToken);
+        } catch (error) {
+            console.error("Refresh token failed, logging out.", error);
+            await logout();
+        }
+    };
 
-    // 🔹 Login biometrico (FaceID / impronta)
-    const biometricLogin = async () => {
-        const savedToken = await SecureStore.getItemAsync("jwt_token");
-        if (!savedToken) return false;
+    const login = async (email: string, password: string) => {
+        const { accessToken, refreshToken } = await authApi.login(email, password);
+        await handleLoginSuccess(accessToken, refreshToken);
+    };
 
-        const compatible = await LocalAuthentication.hasHardwareAsync();
-        if (!compatible) return false;
-
-        const enrolled = await LocalAuthentication.isEnrolledAsync();
-        if (!enrolled) return false;
+    const loginWithBiometrics = async (): Promise<boolean> => {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (!hasHardware || !isEnrolled) {
+            throw new Error("Biometria non disponibile o non configurata.");
+        }
 
         const result = await LocalAuthentication.authenticateAsync({
-            promptMessage: "Accedi a FiscalFlow",
+            promptMessage: "Accedi con la tua biometria",
         });
 
         if (result.success) {
-            setToken(savedToken);
-            try {
-                const u = await authApi.me(); // ✅ carica l'utente
-                setUser(u);
+            const refreshToken = await SecureStore.getItemAsync(TOKEN_KEYS.REFRESH);
+            if (refreshToken) {
+                setLoading(true);
+                await handleRefreshToken(refreshToken);
+                setLoading(false);
                 return true;
-            } catch {
-                return false;
             }
         }
         return false;
     };
 
-    // 🔹 Logout manuale
     const logout = async () => {
         setToken(null);
         setUser(null);
-        await SecureStore.deleteItemAsync("jwt_token");
+        await SecureStore.deleteItemAsync(TOKEN_KEYS.ACCESS);
+
+        // Non cancellare il refresh token se l'utente vuole usare ancora l'accesso automatico
+        const autoLogin = await SecureStore.getItemAsync(SETTINGS_KEYS.AUTO_LOGIN);
+        if (autoLogin !== 'true') {
+            await SecureStore.deleteItemAsync(TOKEN_KEYS.REFRESH);
+        }
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, loading, login, logout, biometricLogin }}>
+        <AuthContext.Provider value={{ token, user, loading, login, loginWithBiometrics, logout }}>
             {children}
         </AuthContext.Provider>
     );
 };
-
-export const useAuth = () => useContext(AuthContext);

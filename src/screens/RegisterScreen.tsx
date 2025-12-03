@@ -40,6 +40,7 @@ export default function RegisterScreen() {
                 },
             ]);
         } catch (err: any) {
+            console.error("DETTAGLIO ERRORE REGISTRAZIONE:", err);
             Alert.alert('Errore di registrazione', err.message || 'Impossibile completare la registrazione');
         } finally {
             setLoading(false);

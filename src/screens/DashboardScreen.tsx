@@ -1,252 +1,267 @@
-import { Colors } from "@constants/colors";
-import { FontAwesome5 } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
-import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
-    Dimensions,
     FlatList,
     ScrollView,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
 } from "react-native";
-import { LineChart } from "react-native-chart-kit";
-import { alertApi, invoiceApi } from "../api";
+import { expensesApi } from "../api";
+import { Card } from "../components/Card";
+import { Header } from "../components/Header";
+import { Colors } from "../constants/colors";
+import { fonts } from "../constants/fonts";
 import { useAuth } from "../context/AuthContext";
+import { formatCurrency } from "../utils/formatCurrency";
 
-const screenWidth = Dimensions.get("window").width - 40;
+// --- Tipi per i dati ---
+interface Transaction {
+    id: string;
+    category: string;
+    amount: number;
+    date: string;
+}
+
+interface Budget {
+    total: number;
+    used: number;
+}
+
+interface SummaryData {
+    availableBalance: number;
+    monthlyBudget: Budget;
+}
+
+// Componente per la barra di progresso
+const ProgressBar = ({ progress }) => (
+    <View style={styles.progressContainer}>
+        <View style={[styles.progressBar, { width: `${progress}%` }]} />
+    </View>
+);
+
+// Componente per l'elemento della transazione
+const TransactionItem = ({ item }: { item: Transaction }) => (
+    <View style={styles.transactionItem}>
+        <View>
+            <Text style={styles.transactionCategory}>{item.category}</Text>
+            <Text style={styles.transactionDate}>
+                {new Date(item.date).toLocaleDateString()}
+            </Text>
+        </View>
+        <Text
+            style={[
+                styles.transactionAmount,
+                item.amount > 0 ? styles.income : styles.expense,
+            ]}
+        >
+            {formatCurrency(item.amount)}
+        </Text>
+    </View>
+);
 
 export default function DashboardScreen() {
-    const navigation = useNavigation();
-    const { user } = useAuth();
+    const { token, user } = useAuth();
+    const [summary, setSummary] = useState<SummaryData | null>(null);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState<{ month: string; total: number }[]>([]);
-    const [invoices, setInvoices] = useState<any[]>([]);
-    const [alerts, setAlerts] = useState<any[]>([]);
+    const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                const [statsRes, invoicesRes, alertsRes] = await Promise.all([
-                    invoiceApi.stats(),
-                    invoiceApi.list(),
-                    alertApi.list(),
-                ]);
+    const fetchData = useCallback(async () => {
+        if (!token) {
+            setError("Token non disponibile.");
+            setLoading(false);
+            return;
+        }
 
-                setStats(statsRes?.data || []);
-                setInvoices(Array.isArray(invoicesRes) ? invoicesRes.slice(0, 3) : []);
-                setAlerts(Array.isArray(alertsRes) ? alertsRes : []);
-            } catch (err) {
-                console.error("Errore caricamento dashboard:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadData();
-    }, []);
+        try {
+            setLoading(true);
+            setError(null);
+
+            // Chiamata singola per ottenere tutti i dati della dashboard
+            const data = await expensesApi.getDashboardSummary();
+
+            setSummary({
+                availableBalance: data.availableBalance,
+                monthlyBudget: {
+                    total: data.monthlyBudget,
+                    used: data.usedBudget,
+                },
+            });
+            setTransactions(data.recentTransactions);
+        } catch (e) {
+            setError("Impossibile caricare i dati.");
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    }, [token]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [fetchData]),
+    );
 
     if (loading) {
         return (
-            <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.white} />
-                <Text style={styles.loadingText}>Caricamento dati...</Text>
-            </LinearGradient>
+            <View style={styles.centered}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={{ marginTop: 10, color: Colors.text }}>
+                    Caricamento...
+                </Text>
+            </View>
         );
     }
 
-    const chartData = {
-        labels: stats.map((s) => s.month),
-        datasets: [{ data: stats.map((s) => s.total) }],
-    };
+    if (error) {
+        return (
+            <View style={styles.centered}>
+                <Text style={styles.errorText}>{error}</Text>
+            </View>
+        );
+    }
+
+    const budgetProgress = summary
+        ? (summary.monthlyBudget.used / summary.monthlyBudget.total) * 100
+        : 0;
 
     return (
         <View style={styles.container}>
-            {/* HEADER HERO */}
-            <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.hero}>
-                <View style={styles.headerTop}>
-                    <View>
-                        <Text style={styles.title}>Ciao, {user?.name || "Utente"} 👋</Text>
-                        <Text style={styles.subtitle}>Bentornato su FiscalFlow</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => navigation.navigate("Profile" as never)}>
-                        <FontAwesome5 name="user-circle" size={28} color={Colors.white} />
-                    </TouchableOpacity>
-                </View>
-            </LinearGradient>
+            <Header title="Dashboard" />
+            <ScrollView contentContainerStyle={styles.scrollContainer}>
+                <Text style={styles.welcomeMessage}>Ciao, {user?.name || "Utente"}!</Text>
 
-            {/* CONTENUTO */}
-            <ScrollView contentContainerStyle={styles.scroll}>
-                <View style={styles.contentWrapper}>
-                    {/* GRAFICO */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Andamento Fatturato</Text>
-                        {stats.length > 0 ? (
-                            <LineChart
-                                data={chartData}
-                                width={screenWidth}
-                                height={220}
-                                chartConfig={{
-                                    backgroundGradientFrom: Colors.primary,
-                                    backgroundGradientTo: Colors.primaryDark,
-                                    decimalPlaces: 2,
-                                    color: (opacity = 1) => `rgba(255,255,255,${opacity})`,
-                                    labelColor: () => "#fff",
-                                }}
-                                bezier
-                                style={styles.chart}
-                            />
-                        ) : (
-                            <Text style={styles.emptyText}>Nessun dato disponibile</Text>
-                        )}
-                    </View>
+                <Card>
+                    <Text style={styles.cardTitle}>Saldo Disponibile</Text>
+                    <Text style={styles.balanceText}>
+                        {formatCurrency(summary?.availableBalance ?? 0)}
+                    </Text>
+                </Card>
 
-                    {/* ULTIME FATTURE */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Ultime Fatture</Text>
-                        {invoices.length === 0 ? (
-                            <Text style={styles.emptyText}>Nessuna fattura trovata.</Text>
-                        ) : (
-                            <FlatList
-                                data={invoices}
-                                keyExtractor={(item) => item.id.toString()}
-                                renderItem={({ item }) => (
-                                    <View style={styles.card}>
-                                        <View style={styles.cardHeader}>
-                                            <Text style={styles.cardTitle}>Fattura {item.number}</Text>
-                                            <Text
-                                                style={[
-                                                    styles.badge,
-                                                    { color: item.status === "paid" ? Colors.accent : Colors.warning },
-                                                ]}
-                                            >
-                                                {item.status.toUpperCase()}
-                                            </Text>
-                                        </View>
-                                        <Text style={styles.cardClient}>{item.customer_name}</Text>
-                                        <Text style={styles.cardAmount}>€ {(item.total_amount || 0).toFixed(2)}</Text>
-                                    </View>
-                                )}
-                            />
-                        )}
-                        <TouchableOpacity
-                            style={styles.viewAllBtn}
-                            onPress={() => navigation.navigate("Invoices" as never)}
-                        >
-                            <Text style={styles.viewAllText}>Vedi tutte</Text>
-                        </TouchableOpacity>
+                <Card>
+                    <View style={styles.budgetHeader}>
+                        <Text style={styles.cardTitle}>Budget Mensile</Text>
+                        <Text style={styles.budgetText}>
+                            {formatCurrency(summary?.monthlyBudget.used ?? 0)} /{" "}
+                            {formatCurrency(summary?.monthlyBudget.total ?? 0)}
+                        </Text>
                     </View>
+                    <ProgressBar progress={budgetProgress} />
+                </Card>
 
-                    {/* AVVISI */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Avvisi Fiscali</Text>
-                        {alerts.length === 0 ? (
-                            <Text style={styles.emptyText}>Nessun avviso programmato.</Text>
-                        ) : (
-                            alerts.map((alert) => (
-                                <View key={alert.id} style={styles.alertCard}>
-                                    <Text style={styles.alertTitle}>{alert.title}</Text>
-                                    <Text style={styles.alertDesc}>{alert.message}</Text>
-                                </View>
-                            ))
-                        )}
-                    </View>
-                </View>
+                <Text style={styles.sectionTitle}>Ultime Transazioni</Text>
+                <FlatList
+                    data={transactions}
+                    renderItem={({ item }) => <TransactionItem item={item} />}
+                    keyExtractor={(item) => item.id}
+                    scrollEnabled={false} // Disabilita lo scroll della FlatList interna
+                    ItemSeparatorComponent={() => <View style={styles.separator} />}
+                />
             </ScrollView>
-
-            {/* FLOATING BUTTON */}
-            <TouchableOpacity
-                style={styles.fab}
-                onPress={() => navigation.navigate("NewInvoice" as never)}
-            >
-                <FontAwesome5 name="plus" size={22} color={Colors.white} />
-            </TouchableOpacity>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.bg },
-    loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-    loadingText: { color: Colors.white, marginTop: 10 },
-    hero: {
-        height: 180,
-        borderBottomLeftRadius: 35,
-        borderBottomRightRadius: 35,
-        paddingHorizontal: 24,
-        paddingTop: 60,
-        justifyContent: "center",
-        shadowColor: "#000",
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
+    container: {
+        flex: 1,
+        backgroundColor: Colors.bg,
     },
-    headerTop: {
+    scrollContainer: {
+        padding: 20,
+    },
+    welcomeMessage: {
+        fontSize: 24,
+        fontFamily: fonts.bold,
+        color: Colors.text,
+        marginBottom: 20,
+    },
+    cardTitle: {
+        fontSize: 16,
+        fontFamily: fonts.medium,
+        color: Colors.text,
+        marginBottom: 8,
+    },
+    balanceText: {
+        fontSize: 36,
+        fontFamily: fonts.bold,
+        color: Colors.primary,
+    },
+    budgetHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
     },
-    title: { color: Colors.white, fontSize: 26, fontWeight: "800" },
-    subtitle: { color: "#E6EDF7", marginTop: 4, fontSize: 14 },
-    scroll: { paddingBottom: 120 },
-    contentWrapper: {
+    budgetText: {
+        fontFamily: fonts.regular,
+        color: Colors.text,
+    },
+    progressContainer: {
+        height: 10,
         backgroundColor: Colors.bg,
-        marginTop: 10, // ✅ più spazio sotto l’header
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        paddingTop: 30, // ✅ più respiro visivo
-        paddingHorizontal: 16,
+        borderRadius: 5,
+        overflow: "hidden",
+        marginTop: 10,
     },
-    section: {
-        backgroundColor: Colors.white,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 20,
-        shadowColor: Colors.primaryDark,
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    sectionTitle: { fontSize: 18, fontWeight: "700", color: Colors.primary, marginBottom: 10 },
-    chart: { borderRadius: 16 },
-    emptyText: { color: Colors.textMuted, textAlign: "center", paddingVertical: 10 },
-    card: {
-        backgroundColor: Colors.surface,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        padding: 12,
-        marginBottom: 10,
-    },
-    cardHeader: { flexDirection: "row", justifyContent: "space-between" },
-    cardTitle: { fontWeight: "700", color: Colors.text },
-    badge: { fontWeight: "600" },
-    cardClient: { color: Colors.textMuted, marginTop: 6 },
-    cardAmount: { fontWeight: "700", fontSize: 15, color: Colors.primary, marginTop: 4 },
-    viewAllBtn: { alignSelf: "flex-end", marginTop: 4 },
-    viewAllText: { color: Colors.primary, fontWeight: "600" },
-    alertCard: {
-        backgroundColor: Colors.white,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        borderRadius: 10,
-        padding: 12,
-        marginBottom: 10,
-    },
-    alertTitle: { fontWeight: "700", color: Colors.text },
-    alertDesc: { color: Colors.text, marginTop: 6, fontSize: 13 },
-    fab: {
-        position: "absolute",
-        bottom: 30,
-        right: 25,
+    progressBar: {
+        height: "100%",
         backgroundColor: Colors.accent,
-        borderRadius: 50,
-        padding: 18,
-        shadowColor: Colors.primaryDark,
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-        elevation: 5,
+        borderRadius: 5,
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontFamily: fonts.bold,
+        color: Colors.text,
+        marginTop: 30,
+        marginBottom: 15,
+    },
+    transactionItem: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 15,
+        backgroundColor: Colors.surface,
+        paddingHorizontal: 15,
+        borderRadius: 10,
+        marginBottom: 10,
+    },
+    transactionCategory: {
+        fontSize: 16,
+        fontFamily: fonts.medium,
+        color: Colors.text,
+    },
+    transactionDate: {
+        fontSize: 14,
+        fontFamily: fonts.regular,
+        color: Colors.text,
+        opacity: 0.6,
+    },
+    transactionAmount: {
+        fontSize: 16,
+        fontFamily: fonts.bold,
+    },
+    income: {
+        color: Colors.accent,
+    },
+    expense: {
+        color: Colors.danger,
+    },
+    separator: {
+        height: 1,
+        backgroundColor: Colors.bg,
+        marginVertical: 5,
+    },
+    centered: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: Colors.bg,
+    },
+    errorText: {
+        color: Colors.danger,
+        fontFamily: fonts.medium,
+        fontSize: 16,
     },
 });

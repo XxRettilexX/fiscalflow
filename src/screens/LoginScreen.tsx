@@ -3,24 +3,36 @@ import { Colors } from "@constants/colors";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
     Alert,
+    Button,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
 
 export default function LoginScreen() {
-    const { login, biometricLogin, loading } = useAuth();
+    const { login, loginWithBiometrics } = useAuth();
     const navigation = useNavigation();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [biometricAvailable, setBiometricAvailable] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const checkBiometric = async () => {
+            const enabled = await SecureStore.getItemAsync("settings_biometric_login");
+            if (enabled === "true") {
+                setBiometricAvailable(true);
+            }
+        };
+        checkBiometric();
+    }, []);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -44,19 +56,21 @@ export default function LoginScreen() {
     };
 
     const handleBiometricLogin = async () => {
-        const success = await biometricLogin();
-        if (success) {
-            Alert.alert("✅ Accesso biometrico riuscito", "Bentornato!");
-            navigation.reset({
-                index: 0,
-                routes: [{ name: "Dashboard" as never }],
-            });
-        } else {
-            Alert.alert("Errore", "Accesso biometrico non riuscito");
+        try {
+            const success = await loginWithBiometrics();
+            if (!success) {
+                Alert.alert("Accesso Fallito", "La biometria non è stata riconosciuta.");
+            } else {
+                Alert.alert("✅ Accesso biometrico riuscito", "Bentornato!");
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: "Dashboard" as never }],
+                });
+            }
+        } catch (error) {
+            Alert.alert("Errore Biometrico", error.message);
         }
     };
-
-
 
     return (
         <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.container}>
@@ -83,20 +97,16 @@ export default function LoginScreen() {
                     onChangeText={setPassword}
                 />
 
-                <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={isLoading}>
-                    {isLoading ? (
-                        <ActivityIndicator color={Colors.white} />
-                    ) : (
-                        <Text style={styles.loginText}>Accedi</Text>
-                    )}
-                </TouchableOpacity>
+                <Button title="Accedi" onPress={handleLogin} color={Colors.primary} />
 
-                <TouchableOpacity style={styles.biometricBtn} onPress={handleBiometricLogin}>
-                    <FontAwesome5 name="fingerprint" size={22} color={Colors.white} />
-                    <Text style={styles.biometricText}>Accedi con impronta digitale</Text>
-                </TouchableOpacity>
+                {biometricAvailable && (
+                    <TouchableOpacity onPress={handleBiometricLogin} style={{ marginTop: 20 }}>
+                        <FontAwesome5 name="fingerprint" size={22} color={Colors.white} />
+                        <Text style={styles.biometricText}>Accedi con impronta digitale</Text>
+                    </TouchableOpacity>
+                )}
 
-                <TouchableOpacity onPress={() => navigation.navigate("Register" as never)}>
+                <TouchableOpacity onPress={() => navigation.navigate("Register" as never)} style={{ marginTop: 15 }}>
                     <Text style={styles.registerText}>Non hai un account? Registrati</Text>
                 </TouchableOpacity>
             </View>

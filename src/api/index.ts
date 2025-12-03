@@ -1,7 +1,7 @@
 // src/api/index.ts
 import * as SecureStore from "expo-secure-store";
 
-const API_URL = "http://13.50.101.252/api";
+const API_URL = "http://13.50.101.252/fiscalflow/api";
 
 interface Invoice {
     id: number;
@@ -50,13 +50,13 @@ export async function apiFetch<T>(
 export const authApi = {
     async login(email: string, password: string) {
         console.log("📩 Tentativo login:", email);
-        return apiFetch<{ token: string }>("/login", {
+        return apiFetch<{ accessToken: string; refreshToken: string }>("/login", {
             method: "POST",
             body: JSON.stringify({ email, password }), // ✅ JSON.stringify!
         });
     },
 
-    async register(name: string, email: string, password: string) {
+    async register({ name, email, password }: { name: string; email: string; password: string; }) {
         console.log("🆕 Registrazione utente:", email);
         return apiFetch<{ message: string }>("/register", {
             method: "POST",
@@ -70,47 +70,42 @@ export const authApi = {
             method: "GET",
         });
     },
+
+    async refresh(refreshToken: string) {
+        console.log("🔄 Tentativo di refresh token");
+        return apiFetch<{ accessToken: string; refreshToken: string }>("/refresh", {
+            method: "POST",
+            body: JSON.stringify({ refreshToken }),
+        });
+    },
 };
 
 //
-// 📊 FATTURE
+// 📊 TRANSAZIONI E SPESE
 //
-export const invoiceApi = {
+export const expensesApi = {
     async list() {
         return apiFetch<Invoice[]>("/invoices", { method: "GET" });
     },
 
-    async get(id: number) {
-        return apiFetch<Invoice>(`/invoices/${id}`, { method: "GET" });
+    async getDashboardSummary() {
+        return apiFetch<{
+            availableBalance: number;
+            monthlyBudget: number;
+            usedBudget: number;
+            recentTransactions: any[];
+        }>("/invoices/stats", { method: "GET" });
     },
 
-    async create(payload: Partial<Invoice>) {
-        console.log("➕ Creazione fattura:", payload);
-        return apiFetch<Invoice>("/invoices", {
+    async create(payload: { amount: number; category: string; date: string; notes?: string; }) {
+        return apiFetch<any>("/invoices", {
             method: "POST",
-            body: JSON.stringify(payload), // ✅
-        });
-    },
-
-    async update(id: number, payload: Partial<Invoice>) {
-        console.log("✏️ Aggiornamento fattura:", id, payload);
-        return apiFetch<Invoice>(`/invoices/${id}`, {
-            method: "PUT",
-            body: JSON.stringify(payload), // ✅
-        });
-    },
-
-    async delete(id: number) {
-        console.log("🗑️ Eliminazione fattura:", id);
-        return apiFetch<{ message: string }>(`/invoices/${id}`, { method: "DELETE" });
-    },
-
-    async stats() {
-        return apiFetch<{ data: { month: string; total: number }[] }>("/invoices/stats", {
-            method: "GET",
+            body: JSON.stringify(payload),
         });
     },
 };
+
+// ... (il resto del codice, come alertApi, può rimanere se serve)
 
 //
 // 🔔 AVVISI
