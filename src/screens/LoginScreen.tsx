@@ -11,12 +11,14 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 
 export default function LoginScreen() {
     const { login, loginWithBiometrics } = useAuth();
+    const { colors, dynamicFontSize } = useSettings();
     const navigation = useNavigation();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -69,15 +71,15 @@ export default function LoginScreen() {
     };
 
     return (
-        <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.container}>
+        <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.container}>
             <View style={styles.inner}>
-                <Text style={styles.title}>FiscalFlow</Text>
-                <Text style={styles.subtitle}>Accedi al tuo account</Text>
+                <Text style={[styles.title, { fontSize: dynamicFontSize(32) }]}>FiscalFlow</Text>
+                <Text style={[styles.subtitle, { fontSize: dynamicFontSize(16), color: colors.white }]}>Accedi al tuo account</Text>
 
                 <TextInput
                     placeholder="Email"
-                    placeholderTextColor={Colors.textMuted}
-                    style={styles.input}
+                    placeholderTextColor={colors.textMuted}
+                    style={[styles.input, { backgroundColor: 'rgba(255, 255, 255, 0.2)', color: colors.white, fontSize: dynamicFontSize(16) }]}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -86,32 +88,32 @@ export default function LoginScreen() {
 
                 <TextInput
                     placeholder="Password"
-                    placeholderTextColor={Colors.textMuted}
-                    style={styles.input}
+                    placeholderTextColor={colors.textMuted}
+                    style={[styles.input, { backgroundColor: 'rgba(255, 255, 255, 0.2)', color: colors.white, fontSize: dynamicFontSize(16) }]}
                     secureTextEntry
                     value={password}
                     onChangeText={setPassword}
                 />
 
-                <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={isLoading}>
+                <TouchableOpacity style={[styles.loginBtn, { backgroundColor: colors.accent }]} onPress={handleLogin} disabled={isLoading}>
                     {isLoading ? (
-                        <ActivityIndicator color={Colors.white} />
+                        <ActivityIndicator color={colors.white} />
                     ) : (
-                        <Text style={styles.loginText}>Accedi</Text>
+                        <Text style={[styles.loginText, { fontSize: dynamicFontSize(16) }]}>Accedi</Text>
                     )}
                 </TouchableOpacity>
 
-                {serverError ? <Text style={styles.errorText}>{serverError}</Text> : null}
+                {serverError ? <Text style={[styles.errorText, { color: colors.danger, fontSize: dynamicFontSize(14) }]}>{serverError}</Text> : null}
 
                 {biometricAvailable && (
                     <TouchableOpacity onPress={handleBiometricLogin} style={styles.biometricBtn}>
-                        <FontAwesome5 name="fingerprint" size={22} color={Colors.white} />
-                        <Text style={styles.biometricText}>Accedi con biometria</Text>
+                        <FontAwesome5 name="fingerprint" size={22} color={colors.white} />
+                        <Text style={[styles.biometricText, { color: colors.white, fontSize: dynamicFontSize(14) }]}>Accedi con biometria</Text>
                     </TouchableOpacity>
                 )}
 
                 <TouchableOpacity onPress={() => navigation.navigate("Register" as never)} style={{ marginTop: 15 }}>
-                    <Text style={styles.registerText}>Non hai un account? Registrati</Text>
+                    <Text style={[styles.registerText, { color: colors.white, fontSize: dynamicFontSize(14) }]}>Non hai un account? Registrati</Text>
                 </TouchableOpacity>
             </View>
         </LinearGradient>
@@ -123,35 +125,28 @@ const styles = StyleSheet.create({
     inner: { padding: 24 },
     title: {
         color: Colors.white,
-        fontSize: 32,
         fontWeight: "800",
         textAlign: "center",
         marginBottom: 8,
     },
     subtitle: {
-        color: Colors.white,
         textAlign: "center",
         marginBottom: 40,
-        fontSize: 16,
         opacity: 0.9,
     },
     input: {
-        backgroundColor: "rgba(255, 255, 255, 0.2)",
         borderRadius: 10,
         paddingVertical: 15,
         paddingHorizontal: 20,
         marginBottom: 12,
-        fontSize: 16,
-        color: Colors.white,
     },
     loginBtn: {
-        backgroundColor: Colors.accent,
         paddingVertical: 15,
         borderRadius: 10,
         alignItems: "center",
         marginTop: 10,
     },
-    loginText: { color: Colors.white, fontWeight: "700", fontSize: 16 },
+    loginText: { color: Colors.white, fontWeight: "700" },
     biometricBtn: {
         flexDirection: "row",
         justifyContent: "center",
@@ -159,18 +154,14 @@ const styles = StyleSheet.create({
         marginTop: 24,
         gap: 12,
     },
-    biometricText: { color: Colors.white, fontSize: 14, fontWeight: "500" },
+    biometricText: { color: Colors.white, fontWeight: "500" },
     registerText: {
-        color: Colors.white,
         textAlign: "center",
         marginTop: 24,
-        fontSize: 14,
         textDecorationLine: "underline",
     },
     errorText: {
-        color: Colors.danger,
         textAlign: "center",
         marginTop: 12,
-        fontSize: 14,
     },
 });

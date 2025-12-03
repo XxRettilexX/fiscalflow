@@ -13,12 +13,19 @@ interface Invoice {
     due_date: string;
 }
 
+// 🌍 Gestione token temporaneo in memoria (usato durante login/refresh prima di persistere)
+let CURRENT_TOKEN: string | null = null;
+export function setAuthToken(token: string | null) {
+    CURRENT_TOKEN = token;
+}
+
 // 🧩 Funzione base per tutte le chiamate API
 export async function apiFetch<T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<T> {
-    const token = await SecureStore.getItemAsync("jwt_token");
+    // Usa prima il token temporaneo in memoria, altrimenti SecureStore
+    const token = CURRENT_TOKEN ?? await SecureStore.getItemAsync("jwt_token");
 
     const headers: HeadersInit = {
         "Content-Type": "application/json",
@@ -36,6 +43,12 @@ export async function apiFetch<T>(
 
     const data = await response.json().catch(() => ({}));
     console.log("📤 Risposta da", endpoint, "→", data);
+
+    // Se il backend risponde con { error: "..." } anche con 200, trattalo come errore
+    if (data && typeof data === "object" && "error" in data) {
+        const errMsg = (data as any).error || `Errore API su ${endpoint}`;
+        throw new Error(errMsg);
+    }
 
     if (!response.ok) {
         throw new Error(data?.error || data?.message || `Errore ${response.status}`);

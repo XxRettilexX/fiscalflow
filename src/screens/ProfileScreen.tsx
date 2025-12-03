@@ -1,12 +1,13 @@
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as SecureStore from "expo-secure-store";
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { Header } from "../components/Header";
 import { Colors } from "../constants/colors";
 import { fonts } from "../constants/fonts";
 import { useAuth } from "../context/AuthContext";
+import { FONT_SCALES, useSettings } from "../context/SettingsContext";
 import { RootStackParamList } from "../navigation/types";
 
 const SETTINGS_KEYS = {
@@ -15,36 +16,49 @@ const SETTINGS_KEYS = {
 };
 
 export default function ProfileScreen() {
-    const { logout, user } = useAuth();
+    const { logout, user, loading, refreshUser } = useAuth();
+    const { colors, fontScale, setFontScale, themeMode, setThemeMode, dynamicFontSize } = useSettings();
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
 
-    // --- State per le Impostazioni ---
+    // --- State per le Impostazioni Accesso ---
     const [isAutoLoginEnabled, setIsAutoLoginEnabled] = useState(false);
     const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
     const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+    const [isRetrying, setIsRetrying] = useState(false);
+    const [serverError, setServerError] = useState<string | null>(null);
 
-    // Carica solo le impostazioni
-    const loadSettings = useCallback(async () => {
+    // Carica solo le impostazioni di accesso
+    const openSettings = async () => {
+        if (!user) return;
         setIsSettingsLoading(true);
+        setSettingsModalVisible(true);
         try {
+            // Carica impostazioni accesso
             const autoLogin = await SecureStore.getItemAsync(SETTINGS_KEYS.AUTO_LOGIN);
-            const biometricLogin = await SecureStore.getItemAsync(SETTINGS_KEYS.BIOMETRIC_LOGIN);
+            const biometric = await SecureStore.getItemAsync(SETTINGS_KEYS.BIOMETRIC_LOGIN);
             const isAutoOn = autoLogin === "true";
             setIsAutoLoginEnabled(isAutoOn);
-            setIsBiometricEnabled(isAutoOn && biometricLogin === "true");
-        } catch (error) {
-            console.error("Errore nel caricamento delle impostazioni:", error);
+            setIsBiometricEnabled(isAutoOn && biometric === "true");
+        } catch (e) {
+            console.warn("Impossibile caricare le impostazioni:", e);
         } finally {
             setIsSettingsLoading(false);
         }
-    }, []);
+    };
 
-    useFocusEffect(
-        useCallback(() => {
-            loadSettings();
-        }, [loadSettings])
-    );
+    // Salva solo le impostazioni di accesso
+    const saveSettings = async () => {
+        if (!user) return;
+        try {
+            await SecureStore.setItemAsync(SETTINGS_KEYS.AUTO_LOGIN, String(isAutoLoginEnabled));
+            await SecureStore.setItemAsync(SETTINGS_KEYS.BIOMETRIC_LOGIN, String(isBiometricEnabled));
+        } catch (e) {
+            console.error("Errore salvataggio impostazioni:", e);
+        } finally {
+            setSettingsModalVisible(false);
+        }
+    };
 
     const handleAutoLoginToggle = async (value: boolean) => {
         setIsAutoLoginEnabled(value);
@@ -61,69 +75,131 @@ export default function ProfileScreen() {
     };
 
     const renderSettingsModal = () => (
-        <Modal
-            animationType="slide"
-            visible={isSettingsModalVisible}
-            onRequestClose={() => setSettingsModalVisible(false)}
-        >
-            <View style={styles.container}>
+        <Modal visible={isSettingsModalVisible} animationType="slide" onRequestClose={() => setSettingsModalVisible(false)}>
+            <View style={{ flex: 1, backgroundColor: colors.bg }}>
                 <Header title="Impostazioni" />
                 <ScrollView contentContainerStyle={styles.content}>
-                    {isSettingsLoading ? <ActivityIndicator size="large" color={Colors.primary} /> : (
+                    {isSettingsLoading ? <ActivityIndicator size="large" color={colors.primary} /> : (
                         <>
-                            <Text style={styles.sectionTitle}>Accesso e Sicurezza</Text>
-                            <View style={styles.settingRow}>
-                                <Text style={styles.settingLabel}>Accesso Automatico</Text>
-                                <Switch
-                                    trackColor={{ false: Colors.surface, true: Colors.primary }}
-                                    thumbColor={"white"}
-                                    onValueChange={handleAutoLoginToggle}
-                                    value={isAutoLoginEnabled}
-                                />
+                            {/* Sezione Accesso e Sicurezza */}
+                            <Text style={[styles.sectionTitle, { color: colors.text, fontSize: dynamicFontSize(20) }]}>Accesso e Sicurezza</Text>
+                            <View style={[styles.settingRow, { backgroundColor: colors.surface }]}>
+                                <Text style={[styles.settingLabel, { color: colors.text, fontSize: dynamicFontSize(16) }]}>Accesso Automatico</Text>
+                                <Switch onValueChange={handleAutoLoginToggle} value={isAutoLoginEnabled} />
                             </View>
-                            <Text style={styles.settingDescription}>
+                            <Text style={[styles.settingDescription, { color: colors.text, fontSize: dynamicFontSize(14) }]}>
                                 Mantieni la sessione attiva per non dover inserire le credenziali ad ogni avvio.
                             </Text>
                             <View style={styles.separator} />
-                            <View style={styles.settingRow}>
-                                <Text style={[styles.settingLabel, !isAutoLoginEnabled && styles.disabledText]}>
-                                    Accesso con Biometria
-                                </Text>
-                                <Switch
-                                    trackColor={{ false: Colors.surface, true: Colors.primary }}
-                                    thumbColor={"white"}
-                                    onValueChange={handleBiometricToggle}
-                                    value={isBiometricEnabled}
-                                    disabled={!isAutoLoginEnabled}
-                                />
+                            <View style={[styles.settingRow, { backgroundColor: colors.surface }]}>
+                                <Text style={[styles.settingLabel, { color: colors.text, fontSize: dynamicFontSize(16) }, !isAutoLoginEnabled && styles.disabledText]}>Accesso con Biometria</Text>
+                                <Switch onValueChange={handleBiometricToggle} value={isBiometricEnabled} disabled={!isAutoLoginEnabled} />
                             </View>
-                            <Text style={[styles.settingDescription, !isAutoLoginEnabled && styles.disabledText]}>
+                            <Text style={[styles.settingDescription, { fontSize: dynamicFontSize(14) }, !isAutoLoginEnabled && styles.disabledText]}>
                                 Usa il tuo volto o la tua impronta digitale per un accesso rapido. Richiede l'accesso automatico attivo.
                             </Text>
 
-                            <Text style={styles.sectionTitle}>Accessibilità</Text>
-                            <View style={styles.settingRow}>
-                                <Text style={[styles.settingLabel, styles.disabledText]}>Testo più grande</Text>
-                                <Switch value={false} disabled={true} />
+                            {/* Sezione Accessibilità */}
+                            <Text style={[styles.sectionTitle, { color: colors.text, fontSize: dynamicFontSize(20) }]}>Accessibilità</Text>
+                            <View style={{ marginBottom: 20 }}>
+                                <Text style={[styles.inputLabel, { color: colors.text, fontSize: dynamicFontSize(14) }]}>Tema</Text>
+                                <View style={[styles.fontScaleContainer, { backgroundColor: colors.surface }]}>
+                                    <TouchableOpacity onPress={() => setThemeMode('light')} style={[styles.fontScaleButton, themeMode === 'light' && { backgroundColor: colors.primary }]}>
+                                        <Text style={[styles.fontScaleText, { color: colors.text }, themeMode === 'light' && { color: colors.white }]}>Chiaro</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setThemeMode('dark')} style={[styles.fontScaleButton, themeMode === 'dark' && { backgroundColor: colors.primary }]}>
+                                        <Text style={[styles.fontScaleText, { color: colors.text }, themeMode === 'dark' && { color: colors.white }]}>Scuro</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setThemeMode('system')} style={[styles.fontScaleButton, themeMode === 'system' && { backgroundColor: colors.primary }]}>
+                                        <Text style={[styles.fontScaleText, { color: colors.text }, themeMode === 'system' && { color: colors.white }]}>Sistema</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                            <Text style={[styles.settingDescription, styles.disabledText]}>
-                                Aumenta la dimensione del testo (prossimamente).
-                            </Text>
+
+                            <View>
+                                <Text style={[styles.inputLabel, { color: colors.text, fontSize: dynamicFontSize(14) }]}>Dimensione Testo</Text>
+                                <View style={[styles.fontScaleContainer, { backgroundColor: colors.surface }]}>
+                                    <TouchableOpacity onPress={() => setFontScale(FONT_SCALES.normal)} style={[styles.fontScaleButton, fontScale === FONT_SCALES.normal && { backgroundColor: colors.primary }]}>
+                                        <Text style={[styles.fontScaleText, { color: colors.text }, fontScale === FONT_SCALES.normal && { color: colors.white }]}>Normale</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setFontScale(FONT_SCALES.large)} style={[styles.fontScaleButton, fontScale === FONT_SCALES.large && { backgroundColor: colors.primary }]}>
+                                        <Text style={[styles.fontScaleText, { color: colors.text }, fontScale === FONT_SCALES.large && { color: colors.white }]}>Grande</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setFontScale(FONT_SCALES.largest)} style={[styles.fontScaleButton, fontScale === FONT_SCALES.largest && { backgroundColor: colors.primary }]}>
+                                        <Text style={[styles.fontScaleText, { color: colors.text }, fontScale === FONT_SCALES.largest && { color: colors.white }]}>Molto Grande</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
                         </>
                     )}
                 </ScrollView>
-                <TouchableOpacity style={styles.closeButton} onPress={() => setSettingsModalVisible(false)}>
+                <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.primary }]} onPress={() => setSettingsModalVisible(false)}>
                     <Text style={styles.closeButtonText}>Chiudi</Text>
                 </TouchableOpacity>
             </View>
         </Modal>
     );
 
-    if (!user || (typeof user === "object" && !user.name && !user.email)) {
+    // ... (logica di rendering per !user e user) ...
+    // N.B.: Tutti gli stili che usano colori o font size ora dovrebbero essere dinamici
+    // Esempio:
+    if (loading) {
         return (
-            <View style={styles.container}>
+            <View style={{ flex: 1, backgroundColor: colors.bg }}>
                 <Header title="Profilo" />
-                <ActivityIndicator style={{ marginTop: 20 }} size="large" color={Colors.primary} />
+                <ActivityIndicator style={{ marginTop: 20 }} size="large" color={colors.primary} />
+            </View>
+        );
+    }
+
+    if (!user) {
+        return (
+            <View style={{ flex: 1, backgroundColor: colors.bg }}>
+                <Header title="Profilo" />
+                <View style={{ padding: 20, alignItems: "center" }}>
+                    <Text style={{ fontSize: dynamicFontSize(18), color: colors.text, marginBottom: 10 }}>
+                        Impossibile caricare le informazioni del profilo.
+                    </Text>
+                    <Text style={{ color: colors.text, opacity: 0.7, textAlign: "center", marginBottom: 12, fontSize: dynamicFontSize(14) }}>
+                        Verifica la connessione o riprova. Se il problema persiste esegui il logout e accedi di nuovo.
+                    </Text>
+                    {serverError ? (
+                        <Text style={{ color: colors.danger, marginBottom: 12, textAlign: "center", fontSize: dynamicFontSize(14) }}>
+                            {serverError}
+                        </Text>
+                    ) : null}
+
+                    {isRetrying ? (
+                        <ActivityIndicator color={colors.primary} />
+                    ) : (
+                        <>
+                            <TouchableOpacity
+                                style={[styles.closeButton, { marginBottom: 12, backgroundColor: colors.primary }]}
+                                onPress={async () => {
+                                    setServerError(null);
+                                    setIsRetrying(true);
+                                    try {
+                                        const ok = await refreshUser();
+                                        if (!ok) setServerError("Errore nel recupero del profilo dal server.");
+                                    } catch (e: any) {
+                                        setServerError(e?.message || "Errore durante il recupero del profilo.");
+                                    } finally {
+                                        setIsRetrying(false);
+                                    }
+                                }}
+                            >
+                                <Text style={styles.closeButtonText}>Riprova</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.logoutButton, { backgroundColor: colors.surface }]}
+                                onPress={logout}
+                            >
+                                <Text style={[styles.logoutButtonText, { color: colors.danger }]}>Esci</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
             </View>
         );
     }
@@ -132,31 +208,31 @@ export default function ProfileScreen() {
     const avatarInitial = (displayName && displayName.length > 0) ? displayName.charAt(0).toUpperCase() : "?";
 
     return (
-        <View style={styles.container}>
+        <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <Header title="Profilo" />
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.profileHeader}>
-                    <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>{avatarInitial}</Text>
+                    <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                        <Text style={[styles.avatarText, { fontSize: dynamicFontSize(32) }]}>{avatarInitial}</Text>
                     </View>
-                    <Text style={styles.profileName}>{displayName}</Text>
-                    <Text style={styles.profileEmail}>{user?.email ?? ""}</Text>
+                    <Text style={[styles.profileName, { color: colors.text, fontSize: dynamicFontSize(22) }]}>{displayName}</Text>
+                    <Text style={[styles.profileEmail, { color: colors.text, fontSize: dynamicFontSize(16) }]}>{user?.email ?? ""}</Text>
                 </View>
 
-                <View style={styles.menuContainer}>
-                    <TouchableOpacity style={styles.menuItem} onPress={() => setSettingsModalVisible(true)}>
-                        <Text style={styles.menuItemText}>Impostazioni</Text>
+                <View style={[styles.menuContainer, { backgroundColor: colors.surface }]}>
+                    <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.bg }]} onPress={openSettings}>
+                        <Text style={[styles.menuItemText, { color: colors.text, fontSize: dynamicFontSize(16) }]}>Impostazioni</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("Support")}>
-                        <Text style={styles.menuItemText}>Supporto</Text>
+                    <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.bg }]} onPress={() => navigation.navigate("Support")}>
+                        <Text style={[styles.menuItemText, { color: colors.text, fontSize: dynamicFontSize(16) }]}>Supporto</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => navigation.navigate("About")}>
-                        <Text style={styles.menuItemText}>Informazioni</Text>
+                        <Text style={[styles.menuItemText, { color: colors.text, fontSize: dynamicFontSize(16) }]}>Informazioni</Text>
                     </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-                    <Text style={styles.logoutButtonText}>Esci</Text>
+                <TouchableOpacity style={[styles.logoutButton, { backgroundColor: colors.surface }]} onPress={logout}>
+                    <Text style={[styles.logoutButtonText, { color: colors.danger, fontSize: dynamicFontSize(16) }]}>Esci</Text>
                 </TouchableOpacity>
             </ScrollView>
             {renderSettingsModal()}
@@ -167,7 +243,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.bg,
+        // backgroundColor is now dynamic
     },
     content: {
         padding: 20,
@@ -180,29 +256,22 @@ const styles = StyleSheet.create({
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: Colors.primary,
         justifyContent: "center",
         alignItems: "center",
         marginBottom: 15,
     },
     avatarText: {
         color: "white",
-        fontSize: 32,
         fontFamily: fonts.bold,
     },
     profileName: {
-        fontSize: 22,
         fontFamily: fonts.bold,
-        color: Colors.text,
     },
     profileEmail: {
-        fontSize: 16,
         fontFamily: fonts.regular,
-        color: Colors.text,
         opacity: 0.7,
     },
     menuContainer: {
-        backgroundColor: Colors.surface,
         borderRadius: 10,
         marginBottom: 20,
     },
@@ -210,49 +279,37 @@ const styles = StyleSheet.create({
         paddingVertical: 18,
         paddingHorizontal: 20,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.bg,
     },
     menuItemText: {
-        fontSize: 16,
         fontFamily: fonts.medium,
-        color: Colors.text,
     },
     logoutButton: {
-        backgroundColor: Colors.surface,
         borderRadius: 10,
         padding: 15,
         alignItems: "center",
     },
     logoutButtonText: {
-        color: Colors.danger,
         fontSize: 16,
         fontFamily: fonts.bold,
     },
     sectionTitle: {
-        fontSize: 20,
         fontFamily: fonts.bold,
-        color: Colors.text,
         marginBottom: 20,
-        marginTop: 10,
+        marginTop: 20,
     },
     settingRow: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        backgroundColor: Colors.surface,
-        padding: 15,
+        paddingVertical: 8,
+        paddingHorizontal: 15,
         borderRadius: 10,
     },
     settingLabel: {
-        fontSize: 16,
         fontFamily: fonts.medium,
-        color: Colors.text,
     },
     settingDescription: {
-        fontSize: 14,
         fontFamily: fonts.regular,
-        color: Colors.text,
-        opacity: 0.7,
         marginTop: 8,
         paddingHorizontal: 5,
         marginBottom: 15,
@@ -274,5 +331,20 @@ const styles = StyleSheet.create({
         color: "white",
         fontSize: 16,
         fontFamily: fonts.bold,
+    },
+    fontScaleContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        borderRadius: 10,
+        padding: 5,
+    },
+    fontScaleButton: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    fontScaleText: {
+        fontFamily: fonts.medium,
     },
 });

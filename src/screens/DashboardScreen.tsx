@@ -1,5 +1,5 @@
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -11,17 +11,19 @@ import {
 import { expensesApi } from "../api";
 import { Card } from "../components/Card";
 import { Header } from "../components/Header";
-import { Colors } from "../constants/colors";
 import { fonts } from "../constants/fonts";
 import { useAuth } from "../context/AuthContext";
+import { useBudget } from "../context/BudgetContext";
+import { useSettings } from "../context/SettingsContext";
 import { formatCurrency } from "../utils/formatCurrency";
 
 // --- Tipi per i dati ---
+// Trasformiamo l'input API in questo formato interno
 interface Transaction {
     id: string;
     category: string;
     amount: number;
-    date: string;
+    date: string; // ISO o stringa leggibile
 }
 
 interface Budget {
@@ -35,35 +37,66 @@ interface SummaryData {
 }
 
 // Componente per la barra di progresso
-const ProgressBar = ({ progress }) => (
-    <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { width: `${progress}%` }]} />
-    </View>
-);
+const ProgressBar = ({ progress }: { progress: number }) => {
+    const { colors } = useSettings();
+    return (
+        <View style={[styles.progressContainer, { backgroundColor: colors.bg }]}>
+            <View
+                style={[
+                    styles.progressBar,
+                    { width: `${progress}%`, backgroundColor: colors.accent },
+                ]}
+            />
+        </View>
+    );
+};
 
 // Componente per l'elemento della transazione
-const TransactionItem = ({ item }: { item: Transaction }) => (
-    <View style={styles.transactionItem}>
-        <View>
-            <Text style={styles.transactionCategory}>{item.category}</Text>
-            <Text style={styles.transactionDate}>
-                {new Date(item.date).toLocaleDateString()}
+const TransactionItem = ({ item }: { item: Transaction }) => {
+    const { colors, dynamicFontSize } = useSettings();
+    // Data stringa sicura
+    const parsed = new Date(item.date);
+    const dateText =
+        !isNaN(parsed.getTime()) ? parsed.toLocaleDateString() : String(item.date);
+
+    return (
+        <View style={[styles.transactionItem, { backgroundColor: colors.surface }]}>
+            <View>
+                <Text
+                    style={[
+                        styles.transactionCategory,
+                        { color: colors.text, fontSize: dynamicFontSize(16) },
+                    ]}
+                >
+                    {item.category}
+                </Text>
+                <Text
+                    style={[
+                        styles.transactionDate,
+                        { color: colors.text, fontSize: dynamicFontSize(14) },
+                    ]}
+                >
+                    {dateText}
+                </Text>
+            </View>
+            <Text
+                style={[
+                    styles.transactionAmount,
+                    { fontSize: dynamicFontSize(16) },
+                    item.amount < 0 ? { color: colors.danger } : { color: colors.accent },
+                ]}
+            >
+                {formatCurrency(item.amount)}
             </Text>
         </View>
-        <Text
-            style={[
-                styles.transactionAmount,
-                item.amount > 0 ? styles.income : styles.expense,
-            ]}
-        >
-            {formatCurrency(item.amount)}
-        </Text>
-    </View>
-);
+    );
+};
 
 export default function DashboardScreen() {
     const { token, user } = useAuth();
-    const [summary, setSummary] = useState<SummaryData | null>(null);
+    const { summary: budgetSummary, loading: budgetLoading } = useBudget();
+    const { colors, dynamicFontSize } = useSettings();
+    const [balance, setBalance] = useState(0);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -79,17 +112,26 @@ export default function DashboardScreen() {
             setLoading(true);
             setError(null);
 
-            // Chiamata singola per ottenere tutti i dati della dashboard
-            const data = await expensesApi.getDashboardSummary();
+            // Chiamata singola per ottenere i dati
+            const data: any = await expensesApi.getDashboardSummary();
 
-            setSummary({
-                availableBalance: data.availableBalance,
-                monthlyBudget: {
-                    total: data.monthlyBudget,
-                    used: data.usedBudget,
-                },
+            // Usa solo il saldo e le transazioni dall'API
+            setBalance(Number(data.availableBalance ?? 0) || 0);
+
+            // Normalizza transazioni
+            const rawTx: any[] = Array.isArray(data.recentTransactions)
+                ? data.recentTransactions
+                : data.recent_transactions ?? [];
+
+            const mapped: Transaction[] = rawTx.map((t: any, idx: number) => {
+                const id = String(t.id ?? t.transaction_id ?? idx);
+                const category = t.category ?? t.customer_name ?? t.description ?? "Transazione";
+                const amount = Number(t.total_amount ?? t.amount ?? 0) || 0;
+                const date = t.issue_date ?? t.date ?? new Date().toISOString();
+                return { id, category, amount, date };
             });
-            setTransactions(data.recentTransactions);
+
+            setTransactions(mapped);
         } catch (e) {
             setError("Impossibile caricare i dati.");
             console.error(e);
@@ -104,11 +146,32 @@ export default function DashboardScreen() {
         }, [fetchData]),
     );
 
-    if (loading) {
+    // Calcola le spese del mese corrente dalle transazioni
+    const currentMonthExpenses = useMemo(() => {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        return transactions.reduce((total, tx) => {
+            const txDate = new Date(tx.date);
+            if (
+                tx.amount < 0 &&
+                txDate.getMonth() === currentMonth &&
+                txDate.getFullYear() === currentYear
+            ) {
+                return total + Math.abs(tx.amount);
+            }
+            return total;
+        }, 0);
+    }, [transactions]);
+
+    const isLoading = loading || budgetLoading;
+
+    if (isLoading) {
         return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color={Colors.primary} />
-                <Text style={{ marginTop: 10, color: Colors.text }}>
+            <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={{ marginTop: 10, color: colors.text }}>
                     Caricamento...
                 </Text>
             </View>
@@ -117,47 +180,54 @@ export default function DashboardScreen() {
 
     if (error) {
         return (
-            <View style={styles.centered}>
-                <Text style={styles.errorText}>{error}</Text>
+            <View style={[styles.centered, { backgroundColor: colors.bg }]}>
+                <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
             </View>
         );
     }
 
-    const budgetProgress = summary
-        ? (summary.monthlyBudget.used / summary.monthlyBudget.total) * 100
-        : 0;
+    const monthlyBudgetTotal = budgetSummary.remainingAfterFixed;
+    const budgetProgress = monthlyBudgetTotal > 0 ? (currentMonthExpenses / monthlyBudgetTotal) * 100 : 0;
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.bg }]}>
             <Header title="Dashboard" />
             <ScrollView contentContainerStyle={styles.scrollContainer}>
-                <Text style={styles.welcomeMessage}>Ciao, {user?.name || "Utente"}!</Text>
+                <Text style={[styles.welcomeMessage, { color: colors.text, fontSize: dynamicFontSize(24) }]}>
+                    Ciao, {user?.name || "Utente"}!
+                </Text>
 
-                <Card>
-                    <Text style={styles.cardTitle}>Saldo Disponibile</Text>
-                    <Text style={styles.balanceText}>
-                        {formatCurrency(summary?.availableBalance ?? 0)}
+                <Card style={{ backgroundColor: colors.surface }}>
+                    <Text style={[styles.cardTitle, { color: colors.text, fontSize: dynamicFontSize(16) }]}>
+                        Saldo Disponibile
+                    </Text>
+                    <Text style={[styles.balanceText, { color: colors.primary, fontSize: dynamicFontSize(36) }]}>
+                        {formatCurrency(balance)}
                     </Text>
                 </Card>
 
-                <Card>
+                <Card style={{ backgroundColor: colors.surface }}>
                     <View style={styles.budgetHeader}>
-                        <Text style={styles.cardTitle}>Budget Mensile</Text>
-                        <Text style={styles.budgetText}>
-                            {formatCurrency(summary?.monthlyBudget.used ?? 0)} /{" "}
-                            {formatCurrency(summary?.monthlyBudget.total ?? 0)}
+                        <Text style={[styles.cardTitle, { color: colors.text, fontSize: dynamicFontSize(16) }]}>
+                            Budget Mensile (Rimanenza)
+                        </Text>
+                        <Text style={[styles.budgetText, { color: colors.text, fontSize: dynamicFontSize(14) }]}>
+                            {formatCurrency(currentMonthExpenses)} /{" "}
+                            {formatCurrency(monthlyBudgetTotal)}
                         </Text>
                     </View>
                     <ProgressBar progress={budgetProgress} />
                 </Card>
 
-                <Text style={styles.sectionTitle}>Ultime Transazioni</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: dynamicFontSize(20) }]}>
+                    Ultime Transazioni
+                </Text>
                 <FlatList
                     data={transactions}
                     renderItem={({ item }) => <TransactionItem item={item} />}
                     keyExtractor={(item) => item.id}
                     scrollEnabled={false} // Disabilita lo scroll della FlatList interna
-                    ItemSeparatorComponent={() => <View style={styles.separator} />}
+                    ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.bg }]} />}
                 />
             </ScrollView>
         </View>
@@ -165,29 +235,23 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+    // Stili non dipendenti da tema/font
     container: {
         flex: 1,
-        backgroundColor: Colors.bg,
     },
     scrollContainer: {
         padding: 20,
     },
     welcomeMessage: {
-        fontSize: 24,
         fontFamily: fonts.bold,
-        color: Colors.text,
         marginBottom: 20,
     },
     cardTitle: {
-        fontSize: 16,
         fontFamily: fonts.medium,
-        color: Colors.text,
         marginBottom: 8,
     },
     balanceText: {
-        fontSize: 36,
         fontFamily: fonts.bold,
-        color: Colors.primary,
     },
     budgetHeader: {
         flexDirection: "row",
@@ -196,24 +260,19 @@ const styles = StyleSheet.create({
     },
     budgetText: {
         fontFamily: fonts.regular,
-        color: Colors.text,
     },
     progressContainer: {
         height: 10,
-        backgroundColor: Colors.bg,
         borderRadius: 5,
         overflow: "hidden",
         marginTop: 10,
     },
     progressBar: {
         height: "100%",
-        backgroundColor: Colors.accent,
         borderRadius: 5,
     },
     sectionTitle: {
-        fontSize: 20,
         fontFamily: fonts.bold,
-        color: Colors.text,
         marginTop: 30,
         marginBottom: 15,
     },
@@ -222,46 +281,33 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         alignItems: "center",
         paddingVertical: 15,
-        backgroundColor: Colors.surface,
         paddingHorizontal: 15,
         borderRadius: 10,
         marginBottom: 10,
     },
     transactionCategory: {
-        fontSize: 16,
         fontFamily: fonts.medium,
-        color: Colors.text,
     },
     transactionDate: {
-        fontSize: 14,
         fontFamily: fonts.regular,
-        color: Colors.text,
         opacity: 0.6,
     },
     transactionAmount: {
-        fontSize: 16,
         fontFamily: fonts.bold,
-    },
-    income: {
-        color: Colors.accent,
-    },
-    expense: {
-        color: Colors.danger,
     },
     separator: {
         height: 1,
-        backgroundColor: Colors.bg,
         marginVertical: 5,
     },
     centered: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: Colors.bg,
     },
     errorText: {
-        color: Colors.danger,
         fontFamily: fonts.medium,
-        fontSize: 16,
     },
+    // Questi stili non sono più necessari qui, i colori vengono applicati dinamicamente
+    income: {},
+    expense: {},
 });

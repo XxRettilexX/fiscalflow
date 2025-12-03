@@ -1,5 +1,5 @@
 import { BottomTabNavigationOptions, createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { NavigationContainer } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { NativeStackNavigationOptions, createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -7,6 +7,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 // Screens
 import AddExpenseScreen from "@screens/AddExpenseScreen";
+import BudgetScreen from "@screens/BudgetScreen";
 import DashboardScreen from "@screens/DashboardScreen";
 import LoginScreen from "@screens/LoginScreen";
 import ProfileScreen from "@screens/ProfileScreen";
@@ -16,8 +17,8 @@ import StatisticsScreen from "@screens/StatisticsScreen";
 import AboutScreen from "../screens/AboutScreen"; // Importa la nuova schermata
 import SupportScreen from "../screens/SupportScreen"; // Importa la nuova schermata
 // Hooks
-import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 import { AuthStackParamList, MainTabParamList, RootStackParamList } from "./types"; // Importa i tipi definiti
 
 // --- Definizione dei tipi per le rotte ---
@@ -28,18 +29,26 @@ const Auth = createNativeStackNavigator<AuthStackParamList>();
 
 // --- Aree dell'app ---
 
-const tabScreenOptions: BottomTabNavigationOptions = {
-    headerShown: false,
-    tabBarStyle: { backgroundColor: Colors.surface, borderTopColor: Colors.bg },
-    tabBarActiveTintColor: Colors.primary,
-    tabBarInactiveTintColor: Colors.text,
-};
-
 // 🔒 Navigatore principale quando l'utente è autenticato
 function MainAppTabs() {
+    const { colors } = useSettings();
+
+    const tabScreenOptions: BottomTabNavigationOptions = {
+        headerShown: false,
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.bg },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+    };
+
+    const ScanButton = () => (
+        <View style={[styles.scanButton, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
+            <Text style={styles.scanButtonText}>+</Text>
+        </View>
+    );
+
     return (
         <Tab.Navigator
-            id="MainTabNavigator" // Aggiunto `id` con valore esplicito
+            id="MainTabNavigator"
             screenOptions={tabScreenOptions}
         >
             <Tab.Screen
@@ -68,10 +77,16 @@ function MainAppTabs() {
                 component={AddExpenseScreen}
                 options={{
                     tabBarLabel: "",
-                    tabBarIcon: () => (
-                        <View style={styles.scanButton}>
-                            <Text style={styles.scanButtonText}>+</Text>
-                        </View>
+                    tabBarIcon: () => <ScanButton />,
+                }}
+            />
+            <Tab.Screen
+                name="Budget"
+                component={BudgetScreen}
+                options={{
+                    tabBarLabel: "Budget",
+                    tabBarIcon: ({ focused, color, size }) => (
+                        <Ionicons name={focused ? "wallet" : "wallet-outline"} size={size} color={color} />
                     ),
                 }}
             />
@@ -109,9 +124,22 @@ function AuthFlowStack() {
 // --- Navigatore Principale ---
 export default function AppNavigator() {
     const { token, loading } = useAuth();
+    const { theme, colors } = useSettings();
+
+    const navigationTheme = {
+        ...(theme === 'dark' ? DarkTheme : DefaultTheme),
+        colors: {
+            ...(theme === 'dark' ? DarkTheme.colors : DefaultTheme.colors),
+            background: colors.bg,
+            card: colors.surface,
+            text: colors.text,
+            primary: colors.primary,
+            border: colors.surface,
+        },
+    };
 
     return (
-        <NavigationContainer>
+        <NavigationContainer theme={navigationTheme}>
             <RootStack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
                 {loading ? (
                     <RootStack.Screen name="Splash" component={SplashScreen} />
@@ -133,7 +161,6 @@ export default function AppNavigator() {
 
 const styles = StyleSheet.create({
     scanButton: {
-        backgroundColor: Colors.primary,
         width: 60,
         height: 60,
         borderRadius: 30,
@@ -141,7 +168,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         bottom: 20, // Sposta il pulsante verso l'alto
         borderWidth: 4,
-        borderColor: Colors.surface,
     },
     scanButtonText: {
         color: "white",
