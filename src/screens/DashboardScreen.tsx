@@ -26,16 +26,6 @@ interface Transaction {
     date: string; // ISO o stringa leggibile
 }
 
-interface Budget {
-    total: number;
-    used: number;
-}
-
-interface SummaryData {
-    availableBalance: number;
-    monthlyBudget: Budget;
-}
-
 // Componente per la barra di progresso
 const ProgressBar = ({ progress }: { progress: number }) => {
     const { colors } = useSettings();

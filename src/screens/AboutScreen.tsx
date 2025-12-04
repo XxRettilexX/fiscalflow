@@ -1,20 +1,22 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../constants/colors';
 import { fonts } from '../constants/fonts';
+import { useSettings } from '../context/SettingsContext';
 
 export default function AboutScreen() {
+    const { colors, dynamicFontSize } = useSettings();
+
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Informazioni su FiscalFlow</Text>
-            <Text style={styles.text}>Versione 1.0.0</Text>
-            <Text style={styles.text}>© 2024 FiscalFlow Inc.</Text>
+        <View style={[styles.container, { backgroundColor: colors.bg }]}>
+            <Text style={[styles.title, { color: colors.text, fontSize: dynamicFontSize(22) }]}>Informazioni su FiscalFlow</Text>
+            <Text style={[styles.text, { color: colors.text, fontSize: dynamicFontSize(16) }]}>Versione 1.0.0</Text>
+            <Text style={[styles.text, { color: colors.text, fontSize: dynamicFontSize(16) }]}>© 2024 FiscalFlow Inc.</Text>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: Colors.bg },
-    title: { fontSize: 22, fontFamily: fonts.bold, color: Colors.text, marginBottom: 10 },
-    text: { fontSize: 16, fontFamily: fonts.regular, color: Colors.text, textAlign: 'center' },
+    container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+    title: { fontFamily: fonts.bold, marginBottom: 10 },
+    text: { fontFamily: fonts.regular, textAlign: 'center' },
 });

@@ -23,7 +23,6 @@ export default function AddExpenseScreen() {
         try {
             setIsSaving(true);
             await expensesApi.create({
-                // Assicura che l'importo sia sempre negativo
                 amount: -Math.abs(parseFloat(amount)),
                 category,
                 date,
@@ -39,13 +38,13 @@ export default function AddExpenseScreen() {
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <View style={[styles.container, { backgroundColor: colors.bg }]}>
             <Header title="Aggiungi Spesa" />
             <View style={styles.content}>
-                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, fontSize: dynamicFontSize(16) }]} placeholder="Importo (€)" value={amount} onChangeText={setAmount} keyboardType="numeric" />
-                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, fontSize: dynamicFontSize(16) }]} placeholder="Categoria (es. Alimentari)" value={category} onChangeText={setCategory} />
-                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, fontSize: dynamicFontSize(16) }]} placeholder="Data (YYYY-MM-DD)" value={date} onChangeText={setDate} />
-                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, fontSize: dynamicFontSize(16) }]} placeholder="Note (opzionale)" value={notes} onChangeText={setNotes} />
+                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, fontSize: dynamicFontSize(16) }]} placeholder="Importo (€)" placeholderTextColor={colors.textMuted} value={amount} onChangeText={setAmount} keyboardType="numeric" />
+                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, fontSize: dynamicFontSize(16) }]} placeholder="Categoria (es. Alimentari)" placeholderTextColor={colors.textMuted} value={category} onChangeText={setCategory} />
+                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, fontSize: dynamicFontSize(16) }]} placeholder="Data (YYYY-MM-DD)" placeholderTextColor={colors.textMuted} value={date} onChangeText={setDate} />
+                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, fontSize: dynamicFontSize(16) }]} placeholder="Note (opzionale)" placeholderTextColor={colors.textMuted} value={notes} onChangeText={setNotes} />
                 <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleAddExpense} disabled={isSaving}>
                     {isSaving ? (
                         <ActivityIndicator color="white" />

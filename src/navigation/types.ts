@@ -4,10 +4,6 @@ export type RootStackParamList = {
     Splash: undefined;
     AuthFlow: NavigatorScreenParams<AuthStackParamList>;
     MainApp: NavigatorScreenParams<MainTabParamList>;
-    Invoices: undefined;
-    InvoiceDetail: { id: string };
-    EditInvoice: { id: number };
-    NewInvoice: undefined;
     Support: undefined;
     About: undefined;
 };

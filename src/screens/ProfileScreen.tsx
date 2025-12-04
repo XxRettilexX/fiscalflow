@@ -47,19 +47,6 @@ export default function ProfileScreen() {
         }
     };
 
-    // Salva solo le impostazioni di accesso
-    const saveSettings = async () => {
-        if (!user) return;
-        try {
-            await SecureStore.setItemAsync(SETTINGS_KEYS.AUTO_LOGIN, String(isAutoLoginEnabled));
-            await SecureStore.setItemAsync(SETTINGS_KEYS.BIOMETRIC_LOGIN, String(isBiometricEnabled));
-        } catch (e) {
-            console.error("Errore salvataggio impostazioni:", e);
-        } finally {
-            setSettingsModalVisible(false);
-        }
-    };
-
     const handleAutoLoginToggle = async (value: boolean) => {
         setIsAutoLoginEnabled(value);
         await SecureStore.setItemAsync(SETTINGS_KEYS.AUTO_LOGIN, String(value));
@@ -331,6 +318,10 @@ const styles = StyleSheet.create({
         color: "white",
         fontSize: 16,
         fontFamily: fonts.bold,
+    },
+    inputLabel: {
+        fontFamily: fonts.medium,
+        marginBottom: 8,
     },
     fontScaleContainer: {
         flexDirection: 'row',

@@ -54,7 +54,6 @@ export default function StatisticsScreen() {
             setTransactions(mappedData);
         } catch (error: any) {
             setError(error.message || "Impossibile caricare le transazioni.");
-            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -133,6 +132,7 @@ export default function StatisticsScreen() {
                     width={Dimensions.get("window").width - 40}
                     height={220}
                     yAxisLabel="€"
+                    yAxisSuffix=""
                     chartConfig={{
                         backgroundColor: colors.surface,
                         backgroundGradientFrom: colors.surface,

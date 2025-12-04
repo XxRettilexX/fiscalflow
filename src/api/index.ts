@@ -33,8 +33,6 @@ export async function apiFetch<T>(
         ...options.headers,
     };
 
-    console.log("🌍 API CALL →", endpoint);
-    console.log("📦 Header inviato:", headers);
 
     const response = await fetch(`${API_URL}${endpoint}`, {
         ...options,
@@ -42,7 +40,6 @@ export async function apiFetch<T>(
     });
 
     const data = await response.json().catch(() => ({}));
-    console.log("📤 Risposta da", endpoint, "→", data);
 
     // Se il backend risponde con { error: "..." } anche con 200, trattalo come errore
     if (data && typeof data === "object" && "error" in data) {
@@ -62,7 +59,6 @@ export async function apiFetch<T>(
 //
 export const authApi = {
     async login(email: string, password: string) {
-        console.log("📩 Tentativo login:", email);
         return apiFetch<{ token: string; refresh_token: string }>("/login", {
             method: "POST",
             headers: {
@@ -73,7 +69,6 @@ export const authApi = {
     },
 
     async register({ name, email, password }: { name: string; email: string; password: string; }) {
-        console.log("🆕 Registrazione utente:", email);
         return apiFetch<{ message: string }>("/register", {
             method: "POST",
             headers: {
@@ -84,14 +79,12 @@ export const authApi = {
     },
 
     async me() {
-        console.log("👤 Richiesta /me");
         return apiFetch<{ id: number; name: string; email: string }>("/me", {
             method: "GET",
         });
     },
 
     async refresh(refreshToken: string) {
-        console.log("🔄 Tentativo di refresh token");
         return apiFetch<{ token: string; refresh_token: string }>("/refresh", {
             method: "POST",
             headers: {

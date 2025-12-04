@@ -1,19 +1,25 @@
 // src/screens/RegisterScreen.tsx
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { authApi } from '../api';
-import { Colors } from '../constants/colors';
+import { fonts } from '../constants/fonts';
+import { useSettings } from '../context/SettingsContext';
+import { AuthStackParamList } from '../navigation/types';
 
 export default function RegisterScreen() {
-    const navigation = useNavigation<any>();
+    const { colors, dynamicFontSize } = useSettings();
+    const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -48,133 +54,81 @@ export default function RegisterScreen() {
     };
 
     return (
-        <View
-            style={{
-                flex: 1,
-                justifyContent: 'center',
-                padding: 24,
-                backgroundColor: Colors.bg,
-            }}
-        >
-            {/* Titolo e descrizione */}
-            <Text
-                style={{
-                    fontSize: 28,
-                    fontWeight: '700',
-                    color: Colors.primary,
-                    marginBottom: 16,
-                }}
-            >
-                Crea un account
-            </Text>
-            <Text
-                style={{
-                    fontSize: 16,
-                    color: Colors.textMuted,
-                    marginBottom: 32,
-                }}
-            >
-                Registrati su FiscalFlow per gestire in modo intelligente le tue finanze
-            </Text>
-
-            {/* Campi */}
-            <TextInput
-                placeholder="Nome completo"
-                placeholderTextColor="#999"
-                value={name}
-                onChangeText={setName}
-                style={{
-                    borderWidth: 1,
-                    borderColor: Colors.border,
-                    padding: 12,
-                    borderRadius: 8,
-                    color: Colors.text,
-                    marginBottom: 12,
-                    backgroundColor: Colors.surface,
-                }}
-            />
-            <TextInput
-                placeholder="Email"
-                placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={{
-                    borderWidth: 1,
-                    borderColor: Colors.border,
-                    padding: 12,
-                    borderRadius: 8,
-                    color: Colors.text,
-                    marginBottom: 12,
-                    backgroundColor: Colors.surface,
-                }}
-            />
-            <TextInput
-                placeholder="Password"
-                placeholderTextColor="#999"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                style={{
-                    borderWidth: 1,
-                    borderColor: Colors.border,
-                    padding: 12,
-                    borderRadius: 8,
-                    color: Colors.text,
-                    marginBottom: 12,
-                    backgroundColor: Colors.surface,
-                }}
-            />
-            <TextInput
-                placeholder="Conferma password"
-                placeholderTextColor="#999"
-                secureTextEntry
-                value={confirm}
-                onChangeText={setConfirm}
-                style={{
-                    borderWidth: 1,
-                    borderColor: Colors.border,
-                    padding: 12,
-                    borderRadius: 8,
-                    color: Colors.text,
-                    marginBottom: 20,
-                    backgroundColor: Colors.surface,
-                }}
-            />
-
-            {/* Pulsante */}
-            <TouchableOpacity
-                onPress={handleRegister}
-                disabled={loading}
-                style={{
-                    backgroundColor: Colors.primary,
-                    paddingVertical: 14,
-                    borderRadius: 8,
-                    alignItems: 'center',
-                }}
-            >
-                {loading ? (
-                    <ActivityIndicator color={Colors.white} />
-                ) : (
-                    <Text style={{ color: Colors.white, fontWeight: '600', fontSize: 16 }}>
-                        Registrati
-                    </Text>
-                )}
-            </TouchableOpacity>
-
-            {/* Link a login */}
-            <TouchableOpacity
-                onPress={() => navigation.replace('Login')}
-                style={{ marginTop: 24 }}
-            >
-                <Text style={{ color: Colors.textMuted, textAlign: 'center', fontSize: 14 }}>
-                    Hai già un account?{' '}
-                    <Text style={{ color: Colors.primary, fontWeight: '600' }}>
-                        Accedi
-                    </Text>
+        <LinearGradient colors={[colors.primary, colors.primaryDark]} style={styles.container}>
+            <View style={styles.inner}>
+                <Text style={[styles.title, { fontSize: dynamicFontSize(32) }]}>
+                    Crea il tuo Account
                 </Text>
-            </TouchableOpacity>
-        </View>
+
+                <TextInput
+                    placeholder="Nome completo"
+                    placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                    style={[styles.input, { fontSize: dynamicFontSize(16), color: colors.white }]}
+                    value={name}
+                    onChangeText={setName}
+                />
+                <TextInput
+                    placeholder="Email"
+                    placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                    style={[styles.input, { fontSize: dynamicFontSize(16), color: colors.white }]}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                />
+                <TextInput
+                    placeholder="Password"
+                    placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                    style={[styles.input, { fontSize: dynamicFontSize(16), color: colors.white }]}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                />
+                <TextInput
+                    placeholder="Conferma password"
+                    placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                    style={[styles.input, { fontSize: dynamicFontSize(16), color: colors.white }]}
+                    value={confirm}
+                    onChangeText={setConfirm}
+                    secureTextEntry
+                />
+
+                <TouchableOpacity
+                    style={[styles.button, { backgroundColor: colors.accent }]}
+                    onPress={handleRegister}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <ActivityIndicator color={colors.white} />
+                    ) : (
+                        <Text style={[styles.buttonText, { fontSize: dynamicFontSize(16) }]}>
+                            Registrati
+                        </Text>
+                    )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={() => navigation.replace('Login')}
+                    style={{ marginTop: 24 }}
+                >
+                    <Text style={[styles.linkText, { color: colors.white, fontSize: dynamicFontSize(14) }]}>
+                        Hai già un account?{' '}
+                        <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                            Accedi
+                        </Text>
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        </LinearGradient>
     );
 }
+
+const styles = StyleSheet.create({
+    container: { flex: 1, justifyContent: 'center' },
+    inner: { padding: 24 },
+    title: { color: 'white', fontFamily: fonts.bold, textAlign: 'center', marginBottom: 30 },
+    input: { backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 10, padding: 15, marginBottom: 15, fontFamily: fonts.regular },
+    button: { padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 10 },
+    buttonText: { color: 'white', fontFamily: fonts.bold },
+    linkText: { textAlign: 'center', textDecorationLine: 'underline', fontFamily: fonts.regular }
+});
