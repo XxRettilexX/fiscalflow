@@ -1,50 +1,49 @@
-# Welcome to your Expo app 👋
+# FiscalFlow 📊
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+FiscalFlow è un'applicazione mobile per la gestione delle finanze personali, costruita con React Native ed Expo. Aiuta gli utenti a monitorare le proprie spese, definire budget mensili e raggiungere i propri obiettivi di risparmio attraverso un'interfaccia semplice e intuitiva.
 
-## Get started
+## ✨ Caratteristiche Principali
 
-1. Install dependencies
+-   **Dashboard Riepilogativa**: Una visione d'insieme del saldo disponibile, del budget mensile e delle transazioni più recenti.
+-   **Pianificazione Budget Dettagliata**: Una sezione dedicata per definire entrate, spese fisse (mensili e annuali) e budget per le spese variabili, con calcoli automatici della rimanenza e del potenziale di risparmio.
+-   **Tracciamento delle Spese**: Un semplice form per aggiungere nuove spese in tempo reale.
+-   **Statistiche Visive**: Un grafico a barre mostra l'andamento delle spese mensili, accompagnato da un elenco dettagliato di tutte le transazioni.
+-   **Autenticazione Sicura**: Flusso di login e registrazione completo, con supporto per l'accesso automatico e biometrico (impronta digitale/riconoscimento facciale).
+-   **Esperienza Personalizzabile**:
+    -   **Tema**: Scegli tra modalità chiara, scura o basata sulle impostazioni di sistema.
+    -   **Accessibilità**: Regola la dimensione del testo per una migliore leggibilità.
 
-   ```bash
-   npm install
-   ```
+## 🚀 Tecnologie Utilizzate
 
-2. Start the app
+-   **React Native** con **Expo**
+-   **TypeScript**
+-   **React Navigation** per la navigazione
+-   **React Context API** per la gestione dello stato (Autenticazione, Impostazioni, Budget)
+-   **React Native Chart Kit** per la visualizzazione dei dati
+-   **Expo Secure Store** & **Async Storage** per la persistenza sicura dei dati
 
-   ```bash
-   npx expo start
-   ```
+## 🏁 Per Iniziare
 
-In the output, you'll find options to open the app in a
+1.  **Installa le dipendenze**
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+    ```bash
+    npm install
+    ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+2.  **Avvia l'applicazione**
 
-## Get a fresh project
+    ```bash
+    npx expo start
+    ```
 
-When you're ready, run:
+    Dall'output del terminale, potrai aprire l'app su un emulatore/simulatore o sul tuo dispositivo fisico tramite l'app Expo Go.
 
-```bash
-npm run reset-project
-```
+## 📂 Struttura del Progetto
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+-   `src/api`: Contiene la logica per le chiamate di rete al backend.
+-   `src/components`: Componenti UI riutilizzabili (es. `Header`, `Card`).
+-   `src/constants`: File di configurazione per colori, font, ecc.
+-   `src/context`: Provider di stato globale per l'autenticazione, le impostazioni e il budget.
+-   `src/navigation`: Configurazione della navigazione (stack e tab navigator).
+-   `src/screens`: Componenti che rappresentano le schermate dell'applicazione.
+-   `src/utils`: Funzioni di utilità (es. formattazione valuta).
