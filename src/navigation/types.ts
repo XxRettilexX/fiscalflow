@@ -6,6 +6,7 @@ export type RootStackParamList = {
     MainApp: NavigatorScreenParams<MainTabParamList>;
     Support: undefined;
     About: undefined;
+    Upgrade: undefined;
 };
 export type AuthStackParamList = {
     Login: undefined;

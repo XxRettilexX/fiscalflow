@@ -131,6 +131,29 @@ export const expensesApi = {
 };
 
 //
+// 💳 ABBONAMENTI E PAGAMENTI
+//
+export const subscriptionApi = {
+    async createPaymentIntent() {
+        return apiFetch<{
+            clientSecret: string;
+            ephemeralKey: string;
+            customer: string;
+        }>("/subscription/create-payment-intent", {
+            method: "POST",
+            body: JSON.stringify({}), // Il backend sa già l'importo
+        });
+    },
+
+    async upgradeSubscription() {
+        return apiFetch<{ success: boolean }>("/subscription/upgrade", {
+            method: "POST",
+            body: JSON.stringify({ plan: "premium" }),
+        });
+    },
+};
+
+//
 // 🔔 AVVISI
 //
 export const alertApi = {

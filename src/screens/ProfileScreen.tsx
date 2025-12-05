@@ -207,6 +207,9 @@ export default function ProfileScreen() {
                 </View>
 
                 <View style={[styles.menuContainer, { backgroundColor: colors.surface }]}>
+                    <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.bg }]} onPress={() => navigation.navigate('Upgrade')}>
+                        <Text style={[styles.menuItemText, { color: colors.accent, fontFamily: fonts.bold, fontSize: dynamicFontSize(16) }]}>🚀 Passa a Premium</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.bg }]} onPress={openSettings}>
                         <Text style={[styles.menuItemText, { color: colors.text, fontSize: dynamicFontSize(16) }]}>Impostazioni</Text>
                     </TouchableOpacity>

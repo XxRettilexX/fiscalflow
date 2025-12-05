@@ -14,6 +14,7 @@ import ProfileScreen from "@screens/ProfileScreen";
 import RegisterScreen from "@screens/RegisterScreen";
 import SplashScreen from "@screens/SplashScreen";
 import StatisticsScreen from "@screens/StatisticsScreen";
+import UpgradeScreen from "@screens/UpgradeScreen";
 import AboutScreen from "../screens/AboutScreen"; // Importa la nuova schermata
 import SupportScreen from "../screens/SupportScreen"; // Importa la nuova schermata
 // Hooks
@@ -153,6 +154,7 @@ export default function AppNavigator() {
                 <RootStack.Group screenOptions={{ presentation: 'modal', headerShown: true }}>
                     <RootStack.Screen name="Support" component={SupportScreen} />
                     <RootStack.Screen name="About" component={AboutScreen} />
+                    <RootStack.Screen name="Upgrade" component={UpgradeScreen} options={{ title: 'Passa a Premium' }} />
                 </RootStack.Group>
             </RootStack.Navigator>
         </NavigationContainer>

@@ -11,8 +11,10 @@ interface SettingsContextType {
     themeMode: ThemeMode;
     colors: typeof lightColors;
     fontScale: number;
+    autoLoginEnabled: boolean;
     setThemeMode: (mode: ThemeMode) => void;
     setFontScale: (scale: number) => void;
+    setAutoLoginEnabled: (enabled: boolean) => void;
     dynamicFontSize: (baseSize: number) => number;
 }
 
@@ -28,13 +30,17 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     const systemTheme = useColorScheme() ?? 'light';
     const [themeMode, setThemeMode] = useState<ThemeMode>('system');
     const [fontScale, setFontScale] = useState(FONT_SCALES.normal);
+    const [autoLoginEnabled, setAutoLoginEnabled] = useState(false);
 
     useEffect(() => {
         const loadSettings = async () => {
             const storedThemeMode = await AsyncStorage.getItem("theme_mode") as ThemeMode | null;
             const storedFontScale = await AsyncStorage.getItem("font_scale");
+            const storedAutoLogin = await AsyncStorage.getItem("settings_auto_login");
+
             setThemeMode(storedThemeMode || 'system');
             setFontScale(storedFontScale ? parseFloat(storedFontScale) : FONT_SCALES.normal);
+            setAutoLoginEnabled(storedAutoLogin === "true");
         };
         loadSettings();
     }, []);
@@ -49,13 +55,18 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         await AsyncStorage.setItem("font_scale", String(scale));
     }, []);
 
+    const handleSetAutoLoginEnabled = useCallback(async (enabled: boolean) => {
+        setAutoLoginEnabled(enabled);
+        await AsyncStorage.setItem("settings_auto_login", String(enabled));
+    }, []);
+
     const dynamicFontSize = (baseSize: number) => baseSize * fontScale;
 
     const theme = themeMode === 'system' ? systemTheme : themeMode;
     const colors = theme === "light" ? lightColors : darkColors;
 
     return (
-        <SettingsContext.Provider value={{ theme, themeMode, colors, fontScale, setThemeMode: handleSetThemeMode, setFontScale: handleSetFontScale, dynamicFontSize }}>
+        <SettingsContext.Provider value={{ theme, themeMode, colors, fontScale, autoLoginEnabled, setThemeMode: handleSetThemeMode, setFontScale: handleSetFontScale, setAutoLoginEnabled: handleSetAutoLoginEnabled, dynamicFontSize }}>
             {children}
         </SettingsContext.Provider>
     );

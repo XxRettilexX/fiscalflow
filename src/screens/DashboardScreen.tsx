@@ -1,11 +1,14 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React, { useCallback, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from "react-native";
 import { expensesApi } from "../api";
@@ -15,7 +18,9 @@ import { fonts } from "../constants/fonts";
 import { useAuth } from "../context/AuthContext";
 import { useBudget } from "../context/BudgetContext";
 import { useSettings } from "../context/SettingsContext";
+import { RootStackParamList } from "../navigation/types";
 import { formatCurrency } from "../utils/formatCurrency";
+import { getCategoryIcon } from "../utils/transactionIcons";
 
 // --- Tipi per i dati ---
 // Trasformiamo l'input API in questo formato interno
@@ -42,32 +47,36 @@ const ProgressBar = ({ progress }: { progress: number }) => {
 };
 
 // Componente per l'elemento della transazione
-const TransactionItem = ({ item }: { item: Transaction }) => {
+const TransactionItem = ({ item, onPress }: { item: Transaction; onPress: () => void }) => {
     const { colors, dynamicFontSize } = useSettings();
     // Data stringa sicura
     const parsed = new Date(item.date);
     const dateText =
         !isNaN(parsed.getTime()) ? parsed.toLocaleDateString() : String(item.date);
+    const icon = getCategoryIcon(item.category);
 
     return (
-        <View style={[styles.transactionItem, { backgroundColor: colors.surface }]}>
-            <View>
-                <Text
-                    style={[
-                        styles.transactionCategory,
-                        { color: colors.text, fontSize: dynamicFontSize(16) },
-                    ]}
-                >
-                    {item.category}
-                </Text>
-                <Text
-                    style={[
-                        styles.transactionDate,
-                        { color: colors.text, fontSize: dynamicFontSize(14) },
-                    ]}
-                >
-                    {dateText}
-                </Text>
+        <TouchableOpacity style={[styles.transactionItem, { backgroundColor: colors.surface }]} onPress={onPress}>
+            <View style={styles.transactionContent}>
+                <Text style={styles.transactionIcon}>{icon}</Text>
+                <View style={styles.transactionDetails}>
+                    <Text
+                        style={[
+                            styles.transactionCategory,
+                            { color: colors.text, fontSize: dynamicFontSize(16) },
+                        ]}
+                    >
+                        {item.category}
+                    </Text>
+                    <Text
+                        style={[
+                            styles.transactionDate,
+                            { color: colors.text, fontSize: dynamicFontSize(14) },
+                        ]}
+                    >
+                        {dateText}
+                    </Text>
+                </View>
             </View>
             <Text
                 style={[
@@ -78,11 +87,90 @@ const TransactionItem = ({ item }: { item: Transaction }) => {
             >
                 {formatCurrency(item.amount)}
             </Text>
-        </View>
+        </TouchableOpacity>
+    );
+};
+
+// Modale per i dettagli della transazione
+const TransactionDetailModal = ({ transaction, visible, onClose }: { transaction: Transaction | null; visible: boolean; onClose: () => void }) => {
+    const { colors, dynamicFontSize } = useSettings();
+    if (!transaction) return null;
+
+    const parsed = new Date(transaction.date);
+    const dateText = !isNaN(parsed.getTime()) ? parsed.toLocaleDateString("it-IT", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : String(transaction.date);
+    const icon = getCategoryIcon(transaction.category);
+
+    return (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+                <View style={[styles.modalContent, { backgroundColor: colors.bg }]}>
+                    <View style={styles.modalHeader}>
+                        <Text style={[styles.modalTitle, { color: colors.text, fontSize: dynamicFontSize(20) }]}>
+                            Dettagli Transazione
+                        </Text>
+                        <TouchableOpacity onPress={onClose}>
+                            <Text style={[styles.closeIcon, { fontSize: dynamicFontSize(24), color: colors.text }]}>✕</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={[styles.modalBody, { backgroundColor: colors.surface }]}>
+                        <View style={styles.iconContainer}>
+                            <Text style={styles.largeIcon}>{icon}</Text>
+                        </View>
+
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: colors.text, fontSize: dynamicFontSize(14) }]}>Categoria</Text>
+                            <Text style={[styles.detailValue, { color: colors.text, fontSize: dynamicFontSize(16) }]}>
+                                {transaction.category}
+                            </Text>
+                        </View>
+
+                        <View style={[styles.separator, { backgroundColor: colors.bg }]} />
+
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: colors.text, fontSize: dynamicFontSize(14) }]}>Importo</Text>
+                            <Text
+                                style={[
+                                    styles.detailValue,
+                                    { fontSize: dynamicFontSize(18) },
+                                    transaction.amount < 0 ? { color: colors.danger } : { color: colors.accent },
+                                ]}
+                            >
+                                {formatCurrency(transaction.amount)}
+                            </Text>
+                        </View>
+
+                        <View style={[styles.separator, { backgroundColor: colors.bg }]} />
+
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: colors.text, fontSize: dynamicFontSize(14) }]}>Data</Text>
+                            <Text style={[styles.detailValue, { color: colors.text, fontSize: dynamicFontSize(16) }]}>
+                                {dateText}
+                            </Text>
+                        </View>
+
+                        <View style={[styles.separator, { backgroundColor: colors.bg }]} />
+
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: colors.text, fontSize: dynamicFontSize(14) }]}>ID Transazione</Text>
+                            <Text style={[styles.detailValue, { color: colors.textMuted, fontSize: dynamicFontSize(14) }]}
+                            >
+                                {transaction.id}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.primary }]} onPress={onClose}>
+                        <Text style={[styles.closeButtonText, { fontSize: dynamicFontSize(16) }]}>Chiudi</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
     );
 };
 
 export default function DashboardScreen() {
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { token, user } = useAuth();
     const { summary: budgetSummary, loading: budgetLoading } = useBudget();
     const { colors, dynamicFontSize } = useSettings();
@@ -90,6 +178,8 @@ export default function DashboardScreen() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+    const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
 
     const fetchData = useCallback(async () => {
         if (!token) {
@@ -187,6 +277,11 @@ export default function DashboardScreen() {
                     Ciao, {user?.name || "Utente"}!
                 </Text>
 
+                {/* Banner Premium */}
+                <TouchableOpacity onPress={() => navigation.navigate("Upgrade")} style={[styles.premiumBanner, { backgroundColor: colors.primary }]}>
+                    <Text style={[styles.premiumBannerText, { fontSize: dynamicFontSize(16) }]}>🚀 Passa a Premium per sbloccare tutte le funzioni!</Text>
+                </TouchableOpacity>
+
                 <Card style={{ backgroundColor: colors.surface }}>
                     <Text style={[styles.cardTitle, { color: colors.text, fontSize: dynamicFontSize(16) }]}>
                         Saldo Disponibile
@@ -214,12 +309,27 @@ export default function DashboardScreen() {
                 </Text>
                 <FlatList
                     data={transactions}
-                    renderItem={({ item }) => <TransactionItem item={item} />}
+                    renderItem={({ item }) => (
+                        <TransactionItem
+                            item={item}
+                            onPress={() => {
+                                setSelectedTransaction(item);
+                                setIsDetailModalVisible(true);
+                            }}
+                        />
+                    )
+                    }
                     keyExtractor={(item) => item.id}
                     scrollEnabled={false} // Disabilita lo scroll della FlatList interna
                     ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.bg }]} />}
                 />
             </ScrollView>
+
+            <TransactionDetailModal
+                transaction={selectedTransaction}
+                visible={isDetailModalVisible}
+                onClose={() => setIsDetailModalVisible(false)}
+            />
         </View>
     );
 }
@@ -275,12 +385,25 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         marginBottom: 10,
     },
+    transactionContent: {
+        flexDirection: "row",
+        alignItems: "center",
+        flex: 1,
+    },
+    transactionIcon: {
+        fontSize: 24,
+        marginRight: 12,
+    },
+    transactionDetails: {
+        flex: 1,
+    },
     transactionCategory: {
         fontFamily: fonts.medium,
     },
     transactionDate: {
         fontFamily: fonts.regular,
         opacity: 0.6,
+        marginTop: 4,
     },
     transactionAmount: {
         fontFamily: fonts.bold,
@@ -296,6 +419,76 @@ const styles = StyleSheet.create({
     },
     errorText: {
         fontFamily: fonts.medium,
+    },
+    premiumBanner: {
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    premiumBannerText: {
+        color: 'white',
+        fontFamily: fonts.bold,
+    },
+    // Stili per il modale
+    modalOverlay: {
+        flex: 1,
+        justifyContent: "flex-end",
+    },
+    modalContent: {
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: 20,
+    },
+    modalHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontFamily: fonts.bold,
+    },
+    closeIcon: {
+        fontFamily: fonts.bold,
+    },
+    modalBody: {
+        marginHorizontal: 20,
+        borderRadius: 15,
+        padding: 20,
+        marginBottom: 20,
+    },
+    iconContainer: {
+        alignItems: "center",
+        marginBottom: 20,
+    },
+    largeIcon: {
+        fontSize: 60,
+    },
+    detailRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginVertical: 10,
+    },
+    detailLabel: {
+        fontFamily: fonts.medium,
+    },
+    detailValue: {
+        fontFamily: fonts.bold,
+        textAlign: "right",
+    },
+    closeButton: {
+        marginHorizontal: 20,
+        padding: 15,
+        borderRadius: 10,
+        alignItems: "center",
+    },
+    closeButtonText: {
+        color: "white",
+        fontFamily: fonts.bold,
     },
     // Questi stili non sono più necessari qui, i colori vengono applicati dinamicamente
     income: {},

@@ -1,4 +1,5 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Header } from "../components/Header";
@@ -6,9 +7,11 @@ import { Colors } from "../constants/colors";
 import { fonts } from "../constants/fonts";
 import { useBudget } from "../context/BudgetContext";
 import { useSettings } from "../context/SettingsContext";
+import { RootStackParamList } from "../navigation/types";
 import { formatCurrency } from "../utils/formatCurrency";
 
 export default function BudgetScreen() {
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { settings: contextSettings, summary, loading, saveSettings, loadSettings } = useBudget();
     const { colors, dynamicFontSize } = useSettings();
     const [settings, setSettings] = useState(contextSettings);
@@ -182,6 +185,12 @@ export default function BudgetScreen() {
                 <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={() => saveSettings(settings)}>
                     <Text style={[styles.saveButtonText, { color: 'white', fontSize: dynamicFontSize(16) }]}>Salva Impostazioni</Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => navigation.navigate('Upgrade')} style={styles.upgradeSection}>
+                    <Text style={[styles.upgradeText, { color: colors.text, fontSize: dynamicFontSize(14) }]}>
+                        Vuoi un'analisi più dettagliata? <Text style={{ color: colors.primary, fontFamily: fonts.bold }}>Passa a Premium.</Text>
+                    </Text>
+                </TouchableOpacity>
             </ScrollView>
         </View>
     );
@@ -245,6 +254,15 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontFamily: fonts.bold,
+    },
+    upgradeSection: {
+        marginTop: 30,
+        padding: 15,
+        alignItems: 'center',
+    },
+    upgradeText: {
+        textAlign: 'center',
+        opacity: 0.8,
     },
     // Nuovi stili per il riepilogo
     summaryBox: {
